@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nómina AEA · Calculadora V Convenio</title>
+<style>
+  @import url('https://cdnjs.cloudflare.com/ajax/libs/JetBrains-Mono/2.304/jetbrains-mono.min.css');
+
+  :root{
+    --bg:#060d1a;
+    --panel:#0c1626;
+    --panel2:#101d33;
+    --line:#1c2c47;
+    --amber:#ffb020;
+    --amber-dim:#8a6420;
+    --cyan:#5ee0d0;
+    --text:#dfe8f5;
+    --dim:#7d90ac;
+    --red:#ff6b6b;
+    --green:#6bffb0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;}
+  ::selection{background:var(--amber);color:#000;}
+
+  .wrap{max-width:960px;margin:0 auto;padding:18px 16px 80px;}
+
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 18px;margin-bottom:18px;
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--line);border-radius:10px;
+    position:relative;overflow:hidden;
+  }
+  header::before{
+    content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg,transparent,transparent 38px,rgba(255,176,32,.035) 38px,rgba(255,176,32,.035) 39px);
+    pointer-events:none;
+  }
+  .brand{display:flex;flex-direction:column;gap:2px;}
+  .brand .eyebrow{font:600 10px/1 'JetBrains Mono',monospace;letter-spacing:.18em;color:var(--amber);text-transform:uppercase;}
+  .brand h1{margin:0;font-size:19px;font-weight:700;letter-spacing:.01em;}
+  .brand .sub{font-size:11.5px;color:var(--dim);}
+  .clock{font:600 13px/1 'JetBrains Mono',monospace;color:var(--cyan);text-align:right;}
+  .clock small{display:block;font-weight:400;color:var(--dim);font-size:10px;margin-top:3px;}
+
+  h2.section-title{
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);
+    margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px;
+  }
+  h2.section-title .n{
+    font:600 10px/1 'JetBrains Mono',monospace;color:#000;background:var(--amber);
+    padding:3px 6px;border-radius:3px;
+  }
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+  @media(max-width:560px){.grid3{grid-template-columns:1fr 1fr;}}
+
+  label{display:block;font-size:11px;color:var(--dim);margin-bottom:4px;letter-spacing:.02em;}
+  select,input[type=number],textarea{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:9px 10px;border-radius:7px;font-size:14.5px;font-family:inherit;
+    -webkit-appearance:none;appearance:none;
+  }
+  select:focus,input:focus,textarea:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:var(--amber);}
+  input[type=number]{font-family:'JetBrains Mono',monospace;}
+  textarea{font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.5;resize:vertical;min-height:140px;}
+  .field{margin-bottom:10px;}
+  .checkrow{display:flex;align-items:center;gap:8px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:7px;padding:9px 10px;margin-bottom:10px;cursor:pointer;}
+  .checkrow input{width:16px;height:16px;accent-color:var(--amber);}
+  .checkrow span{font-size:13.5px;}
+
+  .dietas-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .dietas-table th{text-align:left;color:var(--dim);font-weight:600;font-size:10.5px;
+    text-transform:uppercase;letter-spacing:.05em;padding:6px 6px;border-bottom:1px solid var(--line);}
+  .dietas-table td{padding:5px 6px;border-bottom:1px solid rgba(28,44,71,.5);vertical-align:middle;}
+  .dietas-table input{width:56px;padding:5px 6px;font-size:13px;text-align:center;}
+  .dietas-table .rate{color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:11.5px;}
+  .dietas-table tr:last-child td{border-bottom:none;}
+
+  .result-panel{
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--amber-dim);border-radius:10px;padding:18px;margin-top:24px;
+  }
+  .total-row{display:flex;justify-content:space-between;align-items:baseline;
+    padding-bottom:14px;margin-bottom:14px;border-bottom:1px dashed var(--line);}
+  .total-row .label{font-size:12px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;}
+  .total-row .value{font:700 32px/1 'JetBrains Mono',monospace;color:var(--amber);}
+  .total-row .value small{font-size:15px;color:var(--dim);font-weight:400;}
+
+  .breakdown{display:flex;flex-direction:column;gap:0;}
+  .brk-row{display:flex;justify-content:space-between;padding:6px 2px;font-size:13.5px;
+    border-bottom:1px solid rgba(28,44,71,.4);}
+  .brk-row .k{color:var(--text);}
+  .brk-row .k small{display:block;color:var(--dim);font-size:11px;margin-top:1px;}
+  .brk-row .v{font-family:'JetBrains Mono',monospace;font-weight:600;}
+  .brk-row.zero .v{color:var(--dim);}
+  .brk-row.pos .v{color:var(--green);}
+
+  .note{
+    margin-top:22px;padding:12px 14px;background:rgba(255,176,32,.06);
+    border:1px solid var(--amber-dim);border-radius:8px;font-size:12px;color:var(--dim);line-height:1.55;
+  }
+  .note b{color:var(--amber);}
+  .note.warn{background:rgba(255,107,107,.07);border-color:#7a3030;}
+  .note.warn b{color:var(--red);}
+
+  .btn-calc{
+    width:100%;margin-top:22px;padding:15px;border:none;border-radius:9px;
+    background:var(--amber);color:#1a1200;font-weight:700;font-size:15px;letter-spacing:.02em;
+    cursor:pointer;transition:transform .08s ease, box-shadow .15s ease;
+  }
+  .btn-calc:active{transform:scale(.985);}
+  .btn-calc:hover{box-shadow:0 0 0 3px rgba(255,176,32,.18);}
+  .btn-secondary{
+    width:100%;margin-top:12px;padding:12px;border:1px solid var(--cyan);border-radius:9px;
+    background:transparent;color:var(--cyan);font-weight:700;font-size:13.5px;letter-spacing:.02em;
+    cursor:pointer;
+  }
+  .btn-secondary:hover{background:rgba(94,224,208,.08);}
+
+  .parse-summary{margin-top:14px;font-size:12px;color:var(--dim);}
+  .parse-summary table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;}
+  .parse-summary th{text-align:left;color:var(--dim);font-size:10px;text-transform:uppercase;
+    padding:4px 6px;border-bottom:1px solid var(--line);}
+  .parse-summary td{padding:4px 6px;border-bottom:1px solid rgba(28,44,71,.4);}
+  .tag{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:700;}
+  .tag.larga{background:rgba(255,107,107,.15);color:var(--red);}
+  .tag.internacional{background:rgba(94,224,208,.15);color:var(--cyan);}
+  .tag.nacional{background:rgba(107,255,176,.15);color:var(--green);}
+
+  footer{text-align:center;color:var(--dim);font-size:10.5px;margin-top:30px;letter-spacing:.03em;}
+
+  /* Tabs */
+  .tabs{display:flex;gap:8px;margin-bottom:18px;}
+  .tab-btn{flex:1;padding:11px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--dim);font-weight:700;font-size:13px;
+    letter-spacing:.03em;cursor:pointer;}
+  .tab-btn.active{background:var(--amber);color:#1a1200;border-color:var(--amber);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  /* Calendario */
+  .cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .cal-title{font-size:16px;font-weight:700;color:var(--amber);text-transform:capitalize;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .cal-dow{font-size:10px;color:var(--dim);text-transform:uppercase;text-align:center;
+    padding:4px 0;letter-spacing:.06em;}
+  .cal-cell{min-height:78px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:6px;padding:4px 5px;font-size:10px;overflow:hidden;}
+  .cal-cell.empty{background:transparent;border:none;}
+  .cal-daynum{font:600 11px/1 'JetBrains Mono',monospace;color:var(--dim);margin-bottom:3px;}
+  .cal-chip{display:block;border-radius:4px;padding:1.5px 4px;margin-bottom:2px;
+    font-size:9px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cal-chip.vuelo{background:rgba(94,224,208,.18);color:var(--cyan);}
+  .cal-chip.libre{background:rgba(125,144,172,.15);color:var(--dim);}
+  .cal-chip.sa{background:rgba(125,144,172,.08);color:var(--dim);}
+  .cal-chip.imaginaria{background:rgba(255,176,32,.18);color:var(--amber);}
+  .cal-chip.vacaciones{background:rgba(107,255,176,.15);color:var(--green);}
+  .cal-chip.excedencia{background:rgba(200,140,255,.18);color:#c88cff;}
+  .cal-chip.medico{background:rgba(255,107,107,.15);color:var(--red);}
+  .cal-chip.formacion{background:rgba(94,224,208,.10);color:var(--cyan);}
+  .cal-chip.otro{background:rgba(125,144,172,.12);color:var(--dim);}
+  .cal-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;font-size:11px;color:var(--dim);}
+  .cal-legend .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+
+  @media print{
+    @page{ size: landscape; margin: 10mm; }
+    body{background:#fff;color:#000;}
+    .tabs, .btn-secondary, .btn-calc, header .clock, #rosterInput, .note{display:none !important;}
+    .tab-panel{display:none !important;}
+    .tab-panel.print-active{display:block !important;}
+    .panel,.cal-cell{background:#fff;border:1px solid #ccc;}
+    .cal-chip.vuelo{background:#e3f7f4;color:#0a7a6c;}
+    .cal-chip.libre,.cal-chip.sa{background:#f0f0f0;color:#555;}
+    .cal-chip.imaginaria{background:#fff2d9;color:#8a5a00;}
+    .cal-chip.vacaciones{background:#e4fbee;color:#116b3d;}
+    .cal-chip.excedencia{background:#f2e6ff;color:#5b21a3;}
+    .cal-chip.medico{background:#ffe6e6;color:#a30000;}
+    .cal-chip.formacion{background:#e3f7f4;color:#0a7a6c;}
+    .cal-title{color:#000;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <span class="eyebrow">Air Europa · SEPLA</span>
+      <h1>Calculadora de Nómina</h1>
+      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos</span>
+    </div>
+    <div class="clock">✈ TTP <br><small>uso personal / offline</small></div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabBtnCalc" onclick="switchTab('calc')">Calculadora</button>
+    <button class="tab-btn" id="tabBtnCal" onclick="switchTab('cal')">Calendario</button>
+    <button class="tab-btn" id="tabBtnNom" onclick="switchTab('nom')">Nómina Real</button>
+  </div>
+
+  <div class="tab-panel active" id="tabCalc">
+
+  <!-- 0. Programación -->
+  <h2 class="section-title"><span class="n">00</span> Programación mensual (opcional)</h2>
+  <div class="panel">
+    <div class="field">
+      <label>Pega aquí el texto de tu programación (formato PROGRAMACION DEL ... AL ...)</label>
+      <textarea id="rosterInput" placeholder="TRIPULANTE: ...&#10;PROGRAMACION DEL 01/07/2025 AL 31/07/2025&#10;...&#10;   LI             01/07/2025 00:00 02/07/2025 00:00 MAD  MAD&#10;   CO       CO    03/07/2025 13:25 03/07/2025 22:45 MAD  MIA&#10;..."></textarea>
+    </div>
+    <button class="btn-secondary" onclick="procesarProgramacion()">Procesar programación y rellenar campos</button>
+    <div class="field" style="margin-top:16px;">
+      <label>Cambios (mensajes de última hora que modifican la programación — opcional)</label>
+      <textarea id="cambiosInput" style="min-height:90px;" placeholder="BONNY FVOR TOME NOTA:&#10;02/08/2026 CO MAD-COR 21:45 10:25 Z (MODIFICADO)&#10;04/08/2026 SA COR-COR 01:36 21:49 Z&#10;05/08/2026 CO COR-MAD 15:05 03:10 Z (MODIFICADO)&#10;FVOR CONF RECEP MSSG&#10;GRCS Y SLDS&#10;PROG"></textarea>
+    </div>
+    <div class="parse-summary" id="parseSummary"></div>
+  </div>
+
+  <!-- 1. Perfil -->
+  <h2 class="section-title"><span class="n">01</span> Perfil retributivo</h2>
+  <div class="panel">
+    <div class="grid">
+      <div class="field">
+        <label>Rol</label>
+        <select id="rol">
+          <option value="P1">Primer Piloto (Comandante)</option>
+          <option value="P2" selected>Segundo Piloto</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Nivel salarial</label>
+        <select id="nivel"></select>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="field">
+        <label>Tabla salarial (año de referencia)</label>
+        <select id="anio">
+          <option value="2023">2023 — Anexo II convenio</option>
+          <option value="2026" selected>2026 — tabla oficial vigente</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Incremento adicional (%, opcional)</label>
+        <input type="number" id="incAdicional" value="0" step="0.1">
+      </div>
+    </div>
+    <div class="checkrow" id="rowComandante" style="display:none;">
+      <input type="checkbox" id="comandante">
+      <span>Ejerzo prima de responsabilidad de comandante (737 / 787)</span>
+    </div>
+    <div class="field">
+      <label>Antigüedad "ad personam" mensual, si procede (€, x14 — importe fijo, no revisable)</label>
+      <input type="number" id="antiguedad" value="0" step="1">
+    </div>
+  </div>
+
+  <!-- 2. Actividad -->
+  <h2 class="section-title"><span class="n">02</span> Actividad del mes</h2>
+  <div class="panel">
+    <div class="grid3">
+      <div class="field">
+        <label>Horas de vuelo (perfil)</label>
+        <input type="number" id="horasVuelo" value="0" step="0.1">
+      </div>
+      <div class="field">
+        <label>Horas de actividad total</label>
+        <input type="number" id="horasActividad" value="0" step="0.1">
+      </div>
+      <div class="field">
+        <label>Horas nocturnas (21–08 UTC)</label>
+        <input type="number" id="horasNocturnas" value="0" step="0.1">
+      </div>
+      <div class="field">
+        <label>Nº de imaginarias</label>
+        <input type="number" id="numImaginarias" value="0" step="1">
+      </div>
+      <div class="field">
+        <label>Nº de reservas</label>
+        <input type="number" id="numReservas" value="0" step="1">
+      </div>
+      <div class="field">
+        <label>Horas actividad extraordinaria (MAD&gt;21:00 UTC, BOG, PTY)</label>
+        <input type="number" id="horasActExtra" value="0" step="0.1">
+      </div>
+      <div class="field">
+        <label>¿Nómina de junio o diciembre?</label>
+        <select id="paga">
+          <option value="no">Mes ordinario</option>
+          <option value="si">Sí — paga extra (art. 70)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Días de vacaciones/excedencia este mes (art. 63)</label>
+        <input type="number" id="diasNoTrabajados" value="0" step="1" min="0" max="30">
+      </div>
+      <div class="field">
+        <label>Reducción de jornada (%, si aplica — STS 449/2026)</label>
+        <input type="number" id="reduccionJornada" value="0" step="1" min="0" max="75" placeholder="ej. 25 para 1/4">
+      </div>
+    </div>
+    <div class="field" style="margin-top:2px;">
+      <label>Prima por objetivos del año (€, solo se abona en nómina de mayo — art. 77)</label>
+      <input type="number" id="primaObjetivos" value="0" step="1">
+    </div>
+  </div>
+
+  <!-- 3. Dietas -->
+  <h2 class="section-title"><span class="n">03</span> Dietas del mes (art. 80–81, Anexo III)</h2>
+  <div class="panel">
+    <table class="dietas-table">
+      <thead>
+        <tr><th>Tipo</th><th>Descripción</th><th>Bruto</th><th>Exento</th><th>Días / uds</th></tr>
+      </thead>
+      <tbody id="dietasBody"></tbody>
+    </table>
+  </div>
+
+  <button class="btn-calc" onclick="calcular()">Calcular nómina bruta del mes</button>
+
+  <div class="result-panel" id="resultPanel" style="display:none;">
+    <div class="total-row">
+      <div class="label">Total bruto estimado</div>
+      <div class="value" id="totalValue">0 <small>€</small></div>
+    </div>
+    <div class="breakdown" id="breakdown"></div>
+  </div>
+
+  <div class="note">
+    <b>Alcance del cálculo.</b> Reproduce las fórmulas del V Convenio (arts. 66–92, Anexos II–VI): salario base,
+    prima razón viaje, plus transporte, asistencia técnica, horas 1/2, prima de actividad, imaginarias,
+    nocturnidad, reservas, dietas y pagas extra. No incluye IRPF, Seguridad Social ni aportación al PPE (art. 92).
+    Contrasta siempre con tu recibo oficial.
+  </div>
+  <div class="note warn">
+    <b>Sobre el parser de programación.</b> Las horas de vuelo se obtienen del listado de perfiles B787
+    (agosto‑2025) cuando la ruta coincide; si no, se estiman restando 1h15 de reporte/cierre al tiempo total
+    de servicio. Las horas de actividad se calculan sumando cada F.FIN−F.INI. La nocturnidad aplica el art. 76:
+    si un servicio acumula 4h o más dentro de 21:00–08:00 UTC, se computa el servicio COMPLETO como nocturno.
+    La <b>asignación de dietas es una aproximación</b>: agrupa los días fuera de MAD en rachas y
+    clasifica nacional/internacional/larga distancia y pernocta/contacto de forma simplificada — revisa el
+    resumen antes de dar por buenos los conteos. IM y SA no generan horas de actividad ni dieta en este cálculo
+    (imaginaria se cuenta como unidad; SA se trata como sin actividad, según indicaste).
+  </div>
+
+  </div><!-- /tabCalc -->
+
+  <div class="tab-panel" id="tabCal">
+    <h2 class="section-title"><span class="n">📅</span> Calendario del mes</h2>
+    <div class="panel">
+      <div class="cal-header">
+        <div class="cal-title" id="calTitle">—</div>
+        <div style="text-align:right;">
+          <button class="btn-secondary" style="width:auto;margin:0;padding:9px 16px;" onclick="exportarPDF(event)">Exportar PDF</button>
+        </div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-legend" id="calLegend"></div>
+    </div>
+    <div id="pdfPreviewBox" style="display:none;margin-top:14px;">
+      <div class="note" style="border-color:var(--green);background:rgba(107,255,176,.06);margin-bottom:10px;">
+        <b style="color:var(--green);">Vista previa del calendario generado.</b> Si ves la imagen debajo, el
+        cálculo funciona correctamente. Pulsa el botón amarillo para intentar descargar el PDF — si tampoco
+        hace nada al tocarlo, es una limitación del navegador que estás usando (no del cálculo), y te
+        recomendamos abrir este archivo en Safari.
+      </div>
+      <img id="pdfPreviewFrame" style="width:100%;border:1px solid var(--line);border-radius:8px;background:#0c1626;display:block;">
+      <div style="margin-top:10px;">
+        <a id="pdfManualLinkWrap2" href="#" download style="display:inline-block;padding:10px 16px;background:var(--amber);color:#1a1200;border-radius:8px;font-weight:700;text-decoration:none;">Descargar el PDF (toca aquí)</a>
+      </div>
+    </div>
+    <div class="note" style="margin-top:16px;">
+      <b>Cómo generarlo.</b> Ve a la pestaña "Calculadora", pega tu programación en la sección 00 y pulsa
+      "Procesar programación" — el calendario de esta pestaña se rellena automáticamente con el mes detectado.
+      Pulsa "Exportar PDF" y se descargará el archivo directamente (revisa la carpeta de descargas de tu
+      navegador/app). El PDF se genera con código propio, sin ninguna librería externa ni conexión a
+      internet — debería funcionar igual en cualquier app o navegador.
+    </div>
+  </div><!-- /tabCal -->
+
+  <div class="tab-panel" id="tabNom">
+    <h2 class="section-title"><span class="n">🧾</span> Nómina Real (formato AEA)</h2>
+    <div class="panel" style="font-family:'JetBrains Mono',monospace;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line);">
+        <div>
+          <div id="nomTrabajador" style="color:var(--text);font-weight:700;">—</div>
+          <div id="nomCategoria">—</div>
+        </div>
+        <div style="text-align:right;">
+          <div>AIR EUROPA L.A., S.A.U.</div>
+          <div id="nomPeriodo">—</div>
+        </div>
+      </div>
+      <table class="dietas-table" id="nomTablaDevengos">
+        <thead>
+          <tr><th>Cód.</th><th>Concepto</th><th style="text-align:right;">Unid.</th><th style="text-align:right;">Precio</th><th style="text-align:right;">Devengos</th></tr>
+        </thead>
+        <tbody id="nomBody"></tbody>
+      </table>
+      <div class="total-row" style="margin-top:14px;padding-top:14px;">
+        <div class="label">Total devengos (app)</div>
+        <div class="value" id="nomTotal" style="font-size:24px;">0 <small>€</small></div>
+      </div>
+    </div>
+    <div class="note warn" style="margin-top:14px;">
+      <b>Solo devengos.</b> Esta pestaña reproduce el formato y los códigos de tu nómina real (DEVENGOS), pero
+      la app no calcula: Pérdida de Licencia (8301), Plan de Jubilación/PPE (9154), Media Días Vacaciones (8732),
+      Complementos IT (garantías), retribución en especie (billetes, comida crew), ni la Seguridad Social e IRPF
+      (deducciones). Por eso el total de aquí es el <b>bruto de conceptos calculables</b>, no el importe líquido
+      de tu recibo oficial.
+    </div>
+    <div class="note" style="margin-top:10px;">
+      <b>Pendiente de revisar.</b> En la nómina real de mayo/2026 no aparece una línea separada de
+      "prima actividad >160h" — el único concepto de actividad extra es 8310 "Actividad Extraordinaria",
+      pagado al P.ACT.LAB. de tabla. Puede que ese umbral de 160h no exista como concepto independiente;
+      lo dejamos pendiente de tu revisión.
+    </div>
+  </div><!-- /tabNom -->
+
+  <footer>Generado a partir del V Convenio Colectivo de Pilotos AEA (texto consolidado, enero 2024) y tabla salarial 2026</footer>
+</div>
+
+<script>
+// ================= TABLAS SALARIALES =================
+// [nivel, totalAnual, salarioBase(x14), primaViaje(x14), plusTransporte(x12), asistTecnica(x12),
+//  hVuelo1, hVuelo2, pActLab, pImaginaria, hNocturna, pReserva]
+const TABLA_P1_2023 = [
+["N1AP1",96578.76,3487.49,2615.62,174.38,753.56,81.06,91.18,17.44,243.17,9.69,121.59],
+["N1BP1",95683.65,3487.49,2551.69,174.38,753.56,79.03,89.15,16.87,237.09,9.69,118.54],
+["N1CP1",94788.53,3487.49,2487.75,174.38,753.56,77.00,87.10,16.28,230.99,9.69,115.49],
+["N1P1", 93893.41,3487.49,2423.81,174.38,753.56,74.97,85.08,15.70,224.91,9.69,112.45],
+["N2P1", 92999.68,3487.49,2359.97,174.38,753.56,72.92,83.04,15.12,218.76,9.69,109.38],
+["N3P1", 92102.87,3487.49,2295.92,174.38,753.56,70.88,81.00,14.54,212.65,9.69,106.33],
+["N4P1", 91207.83,3487.49,2231.99,174.38,753.56,68.86,78.97,13.97,206.58,9.69,103.29],
+["N5P1", 90312.94,3487.49,2168.06,174.38,753.56,66.82,77.03,13.38,200.46,9.69,100.23],
+["N6P1", 89417.83,3487.49,2104.13,174.38,753.56,64.78,74.89,12.81,194.35,9.69, 97.18],
+["N7P1", 88522.71,3487.49,2040.19,174.38,753.56,62.75,72.87,12.21,188.26,9.69, 94.13],
+["N8P1", 87627.53,3487.49,1976.25,174.38,753.56,60.70,70.83,11.62,182.10,9.69, 91.05],
+];
+const TABLA_P2_2023 = [
+["N1AP2",73794.04,2441.24,2034.39,174.38,753.56,57.56,66.85,12.79,172.69,6.90,86.34],
+["N1BP2",72898.62,2441.24,1970.43,174.38,753.56,55.53,64.56,12.22,166.58,6.90,83.29],
+["N1CP2",72003.35,2441.24,1906.48,174.38,753.56,53.48,62.79,11.62,160.43,6.90,80.22],
+["N1P2", 71108.23,2441.24,1842.54,174.38,753.56,51.45,60.75,11.07,154.35,6.90,77.18],
+["N2P2", 70213.42,2441.24,1778.63,174.38,753.56,49.40,58.72,10.83,148.21,6.90,74.10],
+["N3P2", 69318.30,2441.24,1714.69,174.38,753.56,47.38,56.70,10.46,142.13,6.90,71.07],
+["N4P2", 68423.11,2441.24,1650.75,174.38,753.56,45.35,54.63, 9.30,136.05,6.90,68.03],
+["N5P2", 67527.61,2441.24,1586.79,174.38,753.56,43.31,52.62, 8.74,129.94,6.90,64.97],
+["N6P2", 66632.80,2441.24,1522.87,174.38,753.56,41.28,50.59, 8.14,123.83,6.90,61.92],
+["N7P2", 65737.68,2441.24,1458.93,174.38,753.56,39.25,48.54, 7.55,117.76,6.90,58.88],
+["N8P2", 64842.80,2441.24,1395.01,174.38,753.56,37.21,46.52, 6.99,111.63,6.90,55.82],
+["N9P2", 55714.06,2034.37,1162.49,174.38,738.79,33.37,39.53, 5.93,100.12,5.86,50.06],
+["N9P2bis",47764.36,1735.19,991.53,174.38,624.80,27.85,33.71, 5.05, 83.54,5.01,41.77],
+["N10P2",39815.10,1436.03, 820.59,174.38,510.82,22.31,27.90, 4.18, 66.92,4.15,33.46],
+["N11P2",28498.32,1005.22, 574.41,174.38,357.58,15.61,19.53, 2.93, 46.84,2.91,23.42],
+];
+
+// Tabla oficial 2026 (Air Europa L.A., +1,5% consolidación prima objetivos, efecto 01/01/2026)
+const TABLA_P1_2026 = [
+["N1AP1",107560.71,3884.04,2913.04,194.21,839.25,90.28,101.55,19.43,270.83,10.79,135.41],
+["N1BP1",106563.81,3884.04,2841.84,194.21,839.25,88.02, 99.29,18.79,264.05,10.79,132.02],
+["N1CP1",105567.00,3884.04,2770.64,194.21,839.25,85.75, 97.01,18.14,257.25,10.79,128.63],
+["N1P1", 104570.01,3884.04,2699.42,194.21,839.25,83.49, 94.76,17.49,250.48,10.79,125.24],
+["N2P1", 103574.65,3884.04,2628.32,194.21,839.25,81.22, 92.49,16.84,243.66,10.79,121.83],
+["N3P1", 102575.87,3884.04,2556.98,194.21,839.25,78.95, 90.21,16.20,236.85,10.79,118.43],
+["N4P1", 101578.97,3884.04,2485.78,194.21,839.25,76.69, 87.95,15.56,230.07,10.79,115.03],
+["N5P1", 100582.41,3884.04,2414.59,194.21,839.25,74.42, 85.79,14.91,223.26,10.79,111.63],
+["N6P1",  99585.51,3884.04,2343.39,194.21,839.25,72.16, 83.41,14.27,216.48,10.79,108.24],
+["N7P1",  98588.61,3884.04,2272.18,194.21,839.25,69.89, 81.15,13.60,209.67,10.79,104.83],
+["N8P1",  97591.64,3884.04,2200.97,194.21,839.25,67.60, 78.89,12.94,202.81,10.79,101.40],
+];
+const TABLA_P2_2026 = [
+["N1AP2",82185.24,2718.83,2265.72,194.21,839.25,64.11,74.46,14.25,192.32,7.69,96.16],
+["N1BP2",81188.00,2718.83,2194.48,194.21,839.25,61.84,71.91,13.61,185.52,7.69,92.76],
+["N1CP2",80190.93,2718.83,2123.27,194.21,839.25,59.56,69.93,12.94,178.67,7.69,89.34],
+["N1P2", 79194.03,2718.83,2052.06,194.21,839.25,57.30,67.66,12.32,171.91,7.69,85.95],
+["N2P2", 78197.47,2718.83,1980.88,194.21,839.25,55.02,65.40,12.07,165.06,7.69,82.53],
+["N3P2", 77200.57,2718.83,1909.67,194.21,839.25,52.77,63.15,11.65,158.31,7.69,79.15],
+["N4P2", 76203.58,2718.83,1838.46,194.21,839.25,50.51,60.85,10.36,151.53,7.69,75.76],
+["N5P2", 75206.43,2718.83,1767.23,194.21,839.25,48.24,58.62, 9.74,144.72,7.69,72.36],
+["N6P2", 74209.70,2718.83,1696.03,194.21,839.25,45.97,56.35, 9.07,137.91,7.69,68.96],
+["N7P2", 73212.80,2718.83,1624.83,194.21,839.25,43.72,54.07, 8.41,131.15,7.69,65.57],
+["N8P2", 72216.17,2718.83,1553.64,194.21,839.25,41.44,51.81, 7.79,124.33,7.69,62.16],
+["N9P2", 62049.29,2265.69,1294.68,194.21,822.80,37.17,44.02, 6.61,111.50,6.53,55.75],
+["N9P2bis",53195.65,1932.50,1104.28,194.21,695.85,31.02,37.55, 5.63, 93.06,5.58,46.53],
+["N10P2",44342.59,1599.32, 913.90,194.21,568.92,24.85,31.08, 4.66, 74.55,4.63,37.28],
+["N11P2",31738.98,1119.52, 639.72,194.21,398.25,17.39,21.75, 3.27, 52.16,3.24,26.08],
+];
+
+// [código, descripción, brutoP1, brutoP2, exentoP1, exentoP2] — bruto y límite exento Hacienda, Anexo III
+const DIETAS_2023 = [
+["DNC","Nacional sin pernocta",74.49,69.27,36.06,36.06],
+["DNP","Nacional con pernocta",63.60,63.60,53.34,53.34],
+["DNT","Nacional tributable 100%",104.26,84.79,0,0],
+["DIC","Internacional sin pernocta",135.11,125.82,66.11,66.11],
+["DIP","Internacional con pernocta",115.72,115.72,91.35,91.35],
+["DIT","Internacional tributable 100%",189.70,154.29,0,0],
+["DIMC","Mixta internac. sin pernocta",159.92,138.76,36.06,36.06],
+["DIMP","Mixta internac. con pernocta",146.53,131.77,53.34,53.34],
+["DLC","Larga distancia sin pernocta",186.38,167.52,66.11,66.11],
+["DLP","Larga distancia con pernocta",165.52,156.65,91.35,91.35],
+["DLT","Larga distancia tributable 100%",240.96,195.98,0,0],
+["DLMC","Larga mixta sin pernocta",211.19,180.46,36.06,36.06],
+["DLMP","Larga mixta con pernocta",197.78,173.48,53.34,53.34],
+["DES","Desayuno",19.27,15.67,0,0],
+];
+
+const PRIMA_COMANDANTE_2023 = 2137.29;
+const PRIMA_COMANDANTE_2026 = 2380.33;
+
+const TABLAS = {
+  "2023": {P1:TABLA_P1_2023, P2:TABLA_P2_2023, comandante:PRIMA_COMANDANTE_2023, dietaFactor:1},
+  "2026": {P1:TABLA_P1_2026, P2:TABLA_P2_2026, comandante:PRIMA_COMANDANTE_2026,
+           dietaFactor: TABLA_P1_2026[0][2]/TABLA_P1_2023[0][2]}, // dietas 2026 no publicadas: se estiman con el mismo incremento acumulado (~11,37%)
+};
+
+const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// ================= PERFILES B787 (agosto 2025) =================
+function hm(h,m){ return h + m/60; }
+const PERFILES_787 = {
+"AMSMAD":hm(3,4),"ASUMAD":hm(14,8),"ATHMAD":hm(4,17),"AUHMAD":hm(10,12),"BCNMAD":hm(1,42),
+"BOGMAD":hm(12,48),"BRUJFK":hm(10,50),"BRUMAD":hm(2,49),"CCSMAD":hm(11,3),"CORMAD":hm(15,45),
+"CUNMAD":hm(12,36),"EZEMAD":hm(15,16),"FCOMAD":hm(2,52),"GRUMAD":hm(13,0),"GYEMAD":hm(14,1),
+"HAMMAD":hm(3,21),"HAVMAD":hm(11,46),"ISTMAD":hm(4,20),"JFKBRU":hm(9,17),"JFKMAD":hm(9,29),
+"LGWMAD":hm(2,42),"LIMMAD":hm(14,42),"LPAMAD":hm(3,0),"MADAMS":hm(3,3),"MADASU":hm(14,58),
+"MADATH":hm(3,46),"MADAUH":hm(9,1),"MADBCN":hm(1,35),"MADBOG":hm(13,31),"MADBRU":hm(2,46),
+"MADCCS":hm(12,8),"MADCOR":hm(16,43),"MADCUN":hm(14,39),"MADEZE":hm(16,47),"MADFCO":hm(2,43),
+"MADGRU":hm(13,57),"MADGYE":hm(15,11),"MADHAM":hm(3,16),"MADHAV":hm(13,25),"MADIST":hm(3,58),
+"MADJFK":hm(10,43),"MADLGW":hm(2,36),"MADLIM":hm(15,39),"MADLPA":hm(3,14),"MADMDE":hm(13,31),
+"MADMIA":hm(12,37),"MADMUC":hm(2,57),"MADMVD":hm(16,18),"MADMXP":hm(2,32),"MADORY":hm(2,16),
+"MADPMI":hm(1,43),"MADPTY":hm(13,46),"MADPUJ":hm(11,37),"MADSAP":hm(14,32),"MADSDQ":hm(11,48),
+"MADSSA":hm(11,50),"MADSTI":hm(11,37),"MADTFN":hm(3,18),"MADTLV":hm(5,0),"MADUIO":hm(14,28),
+"MADVVI":hm(14,28),"MADZRH":hm(2,38),"MDEMAD":hm(12,47),"MIAMAD":hm(11,23),"MUCMAD":hm(2,52),
+"MVDMAD":hm(15,28),"MXPMAD":hm(2,38),"ORYMAD":hm(2,22),"PMIMAD":hm(1,41),"PTYMAD":hm(12,56),
+"PUJMAD":hm(10,26),"SAPMAD":hm(13,8),"SDQMAD":hm(10,40),"SSAMAD":hm(11,21),"STIMAD":hm(10,47),
+"TFNMAD":hm(3,7),"TLVMAD":hm(5,39),"UIOGYE":hm(1,14),"VVIMAD":hm(14,10),"ZRHMAD":hm(2,45),
+};
+
+// Clasificación aeropuertos para dietas (simplificada)
+const ES_AIRPORTS = new Set(["MAD","BCN","LPA","PMI","TFN","AGP","VLC","SVQ","SCQ","BIO","ALC","IBZ","MAH","VGO","OVD","SDR","LEI","FUE","ACE"]);
+const EU_AIRPORTS = new Set(["AMS","ATH","BRU","FCO","HAM","IST","LGW","MUC","MXP","ORY","ZRH","TLV"]);
+const BASE = "MAD";
+function tipoAirport(code){
+  if(ES_AIRPORTS.has(code)) return "nacional";
+  if(EU_AIRPORTS.has(code)) return "internacional";
+  return "larga";
+}
+
+// ================= HELPERS TABLA/DIETAS UI =================
+function factorAnio(){
+  const extra = parseFloat(document.getElementById('incAdicional').value)||0;
+  return 1 + extra/100;
+}
+function tablaSeleccionada(){
+  const anio = document.getElementById('anio').value;
+  return TABLAS[anio];
+}
+function tablaActual(){
+  const t = tablaSeleccionada();
+  return document.getElementById('rol').value === 'P1' ? t.P1 : t.P2;
+}
+
+function poblarNiveles(){
+  const sel = document.getElementById('nivel');
+  sel.innerHTML = '';
+  tablaActual().forEach(row=>{
+    const opt = document.createElement('option');
+    opt.value = row[0]; opt.textContent = row[0];
+    sel.appendChild(opt);
+  });
+  // Nivel por defecto: N8P2 si existe en la tabla actual (P2), si no el primero disponible.
+  if(tablaActual().some(r=>r[0]==='N8P2')) sel.value = 'N8P2';
+  document.getElementById('rowComandante').style.display =
+    document.getElementById('rol').value === 'P1' ? 'flex' : 'none';
+}
+
+function poblarDietas(){
+  const body = document.getElementById('dietasBody');
+  body.innerHTML = '';
+  DIETAS_2023.forEach((d,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><b>${d[0]}</b></td><td>${d[1]}</td>
+      <td class="rate" id="rate_${i}"></td>
+      <td class="rate" id="exento_${i}"></td>
+      <td><input type="number" min="0" step="1" value="0" id="dieta_${i}"></td>`;
+    body.appendChild(tr);
+  });
+  actualizarTarifasDietas();
+}
+
+function actualizarTarifasDietas(){
+  const rol = document.getElementById('rol').value;
+  const t = tablaSeleccionada();
+  const f = factorAnio() * t.dietaFactor;
+  DIETAS_2023.forEach((d,i)=>{
+    const base = rol === 'P1' ? d[2] : d[3];
+    const exento = rol === 'P1' ? d[4] : d[5];
+    document.getElementById(`rate_${i}`).textContent = fmt(base*f) + ' €';
+    document.getElementById(`exento_${i}`).textContent = fmt(exento*f) + ' €';
+  });
+}
+
+// ================= CÁLCULO PRINCIPAL =================
+function calcular(){
+  const rol = document.getElementById('rol').value;
+  const nivelCod = document.getElementById('nivel').value;
+  const tabla = tablaActual();
+  const row = tabla.find(r=>r[0]===nivelCod);
+  if(!row) return;
+  const t = tablaSeleccionada();
+  const f = factorAnio();
+
+  const [,,salarioBase,primaViaje,plusTransp,asistTec,hVuelo1,hVuelo2,pActLab,pImaginaria,hNocturna,pReserva] = row;
+  const sb = salarioBase*f, pv = primaViaje*f, pt = plusTransp*f, at = asistTec*f;
+  const rHv1 = hVuelo1*f, rHv2 = hVuelo2*f, rPact = pActLab*f, rPimag = pImaginaria*f, rHnoc = hNocturna*f, rPres = pReserva*f;
+
+  const antiguedad = parseFloat(document.getElementById('antiguedad').value)||0;
+  const horasVuelo = parseFloat(document.getElementById('horasVuelo').value)||0;
+  const horasActividad = parseFloat(document.getElementById('horasActividad').value)||0;
+  const horasNocturnas = parseFloat(document.getElementById('horasNocturnas').value)||0;
+  const numImaginarias = parseFloat(document.getElementById('numImaginarias').value)||0;
+  const numReservas = parseFloat(document.getElementById('numReservas').value)||0;
+  const horasActExtra = parseFloat(document.getElementById('horasActExtra').value)||0;
+  const primaObjetivos = parseFloat(document.getElementById('primaObjetivos').value)||0;
+  const esPagaExtra = document.getElementById('paga').value === 'si';
+  const esComandante = document.getElementById('comandante').checked;
+  const diasNoTrabajados = Math.min(30, Math.max(0, parseFloat(document.getElementById('diasNoTrabajados').value)||0));
+  const reduccionJornadaPct = Math.min(75, Math.max(0, parseFloat(document.getElementById('reduccionJornada').value)||0));
+
+  // Art. 63: por cada día natural de vacaciones/excedencia con reserva, se prorratea (1/30)
+  // el mínimo de horas de vuelo garantizadas (55h) y el máximo de actividad mensual (160h).
+  // STS 449/2026 (24/4/2026, BOE-A-2026-11055): declara ILEGAL la cláusula del Anexo XIX que
+  // excluía del prorrateo a Horas 1/Horas 2 en reducción de jornada — ahora también se prorratean
+  // en la misma proporción que la reducción solicitada.
+  const proporcionTrabajada = ((30 - diasNoTrabajados) / 30) * (1 - reduccionJornadaPct/100);
+  const umbral55 = 55 * proporcionTrabajada;
+  const umbral75 = 75 * proporcionTrabajada;
+  const umbral160 = 160 * proporcionTrabajada;
+
+  const horas1 = Math.min(Math.max(horasVuelo-umbral55,0), umbral75-umbral55);
+  const horas2 = Math.max(horasVuelo-umbral75,0);
+  const payHoras1 = horas1*rHv1;
+  const payHoras2 = horas2*rHv2;
+  const payActLab = Math.max(horasActividad-umbral160,0)*rPact;
+  const payImaginarias = numImaginarias*rPimag;
+  const payNocturnas = horasNocturnas*rHnoc;
+  const payReservas = numReservas*rPres;
+
+  let dietasTotal = 0, dietasExento = 0;
+  const dietaFactor = f * t.dietaFactor;
+  const rowRol = rol==='P1' ? 2 : 3;
+  const rowExento = rol==='P1' ? 4 : 5;
+  DIETAS_2023.forEach((d,i)=>{
+    const n = parseFloat(document.getElementById(`dieta_${i}`).value)||0;
+    dietasTotal += n * d[rowRol] * dietaFactor;
+    dietasExento += n * d[rowExento] * dietaFactor;
+  });
+  const dietasSujeto = dietasTotal - dietasExento;
+
+  const primaResp = (esComandante && rol==='P1') ? t.comandante*f : 0;
+  const gratifExtra = esPagaExtra ? (sb+pv+antiguedad) : 0;
+  const objetivos = primaObjetivos;
+  // Art. 59: cada imaginaria devenga 3h de vuelo "fuera de mínimos" al nivel correspondiente,
+  // aunque no se llegue a volar (o si se vuela menos de 3h de perfil).
+  const payImaginariaVuelo = numImaginarias * 3 * rHv2;
+  // Regla acordada: vuelos con salida de MAD posterior a las 21:00 UTC, o que toquen BOG/PTY,
+  // se consideran actividad extraordinaria y se abonan al P. ACT. LAB. de la tabla, aparte del
+  // umbral general de >160h.
+  const payActExtra = horasActExtra * rPact;
+
+  const total = sb+pv+pt+at+antiguedad+payHoras1+payHoras2+payActLab+payImaginarias+
+                payNocturnas+payReservas+dietasTotal+primaResp+gratifExtra+objetivos+payImaginariaVuelo+payActExtra;
+
+  document.getElementById('totalValue').innerHTML = fmt(total) + ' <small>€ brutos</small>';
+
+  const items = [
+    ["Salario base","(×14, tabla "+document.getElementById('anio').value+")", sb],
+    ["Prima razón viaje","(×14)", pv],
+    ["Plus de transporte","(×12)", pt],
+    ["Asistencia técnica","(×12)", at],
+    ["Antigüedad ad personam","", antiguedad],
+    ["Horas 1 ("+fmt(umbral55)+"–"+fmt(umbral75)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), horas1.toFixed(1)+" h × "+fmt(rHv1)+" €", payHoras1],
+    ["Horas 2 (>"+fmt(umbral75)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), horas2.toFixed(1)+" h × "+fmt(rHv2)+" €", payHoras2],
+    ["Prima actividad (>"+fmt(umbral160)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), Math.max(horasActividad-umbral160,0).toFixed(1)+" h × "+fmt(rPact)+" €", payActLab],
+    ["Prima nocturnidad", horasNocturnas.toFixed(1)+" h × "+fmt(rHnoc)+" €", payNocturnas],
+    ["Imaginarias","(prima fija) "+numImaginarias+" × "+fmt(rPimag)+" €", payImaginarias],
+    ["Horas de vuelo por imaginaria","(art. 59, fuera de mínimos) "+numImaginarias+" × 3h × "+fmt(rHv2)+" €", payImaginariaVuelo],
+    ["Actividad extraordinaria","MAD>21:00 UTC / BOG / PTY — "+horasActExtra.toFixed(1)+" h × "+fmt(rPact)+" €", payActExtra],
+    ["Reservas", numReservas+" × "+fmt(rPres)+" €", payReservas],
+    ["Dietas (Anexo III)", "de las cuales "+fmt(dietasExento)+" € exentas Hacienda y "+fmt(dietasSujeto)+" € sujetas", dietasTotal],
+    ["Prima responsabilidad comandante","(×12)", primaResp],
+    ["Paga extra (art. 70)", esPagaExtra?"junio/diciembre":"—", gratifExtra],
+    ["Prima por objetivos (art. 77)", "solo mayo", objetivos],
+  ];
+
+  const bd = document.getElementById('breakdown');
+  bd.innerHTML = items.map(([k,sub,v])=>`
+    <div class="brk-row ${v===0?'zero':'pos'}">
+      <div class="k">${k}${sub?`<small>${sub}</small>`:''}</div>
+      <div class="v">${fmt(v)} €</div>
+    </div>`).join('');
+
+  document.getElementById('resultPanel').style.display = 'block';
+  document.getElementById('resultPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+
+  renderNominaReal({
+    nivelCod, rol, sb, pv, pt, at, antiguedad,
+    horas1, horas2, rHv1, rHv2, payHoras1, payHoras2,
+    numImaginarias, rPimag, payImaginarias, payImaginariaVuelo,
+    horasNocturnas, rHnoc, payNocturnas,
+    horasActExtra, rPact, payActExtra,
+    numReservas, rPres, payReservas,
+    dietasExento, dietasSujeto,
+    primaResp, gratifExtra, objetivos, esPagaExtra,
+    total
+  });
+}
+
+// ================= NÓMINA REAL (formato AEA) =================
+function renderNominaReal(d){
+  document.getElementById('nomTrabajador').textContent = 'Nivel '+d.nivelCod+' — '+(d.rol==='P1'?'Primer Piloto':'Segundo Piloto');
+  document.getElementById('nomCategoria').textContent = (d.rol==='P1'?'Piloto 1':'Piloto 2')+' Nivel '+(d.nivelCod.match(/\d+/)||[''])[0];
+  const now = new Date();
+  document.getElementById('nomPeriodo').textContent = 'Período: '+document.getElementById('anio').value+' (simulado)';
+
+  const rows = [
+    ['8000','Salario Base','30,00','', d.sb],
+    ['8148','Plus de Transporte','30,00','', d.pt],
+    ['8172','Prima Razón Viaje','30,00','', d.pv],
+    ['9A67','Plus Asistencia Técnica','30,00','', d.at],
+    ['8222','Plus Horas Vuelo 1', d.horas1.toFixed(2), fmt(d.rHv1), d.payHoras1],
+    ['8223','Plus Horas Vuelo 2', d.horas2.toFixed(2), fmt(d.rHv2), d.payHoras2],
+    ['8225','Plus Imaginaria', String(d.numImaginarias), fmt(d.rPimag), d.payImaginarias],
+    ['—','Horas vuelo por imaginaria (art. 59)', (d.numImaginarias*3).toFixed(2), fmt(d.rHv2), d.payImaginariaVuelo],
+    ['8230','Plus Nocturnidad', d.horasNocturnas.toFixed(2), fmt(d.rHnoc), d.payNocturnas],
+    ['8310','Actividad Extraordinaria', d.horasActExtra.toFixed(2), fmt(d.rPact), d.payActExtra],
+    ['8514','Reserva', String(d.numReservas), fmt(d.rPres), d.payReservas],
+    ['8517','Prima por objetivos','—','', d.objetivos],
+    ['9A07','Dietas Exenta Tributación','—','', d.dietasExento],
+    ['9A08','Dietas Sujetas Retención','—','', d.dietasSujeto],
+  ];
+  if(d.antiguedad>0) rows.splice(4,0,['—','Antigüedad ad personam','30,00','', d.antiguedad]);
+  if(d.primaResp>0) rows.push(['—','Prima resp. comandante','12,00','', d.primaResp]);
+  if(d.esPagaExtra) rows.push(['—','Paga extra (art. 70)','—','', d.gratifExtra]);
+
+  document.getElementById('nomBody').innerHTML = rows.map(([cod,nombre,uni,precio,val])=>`
+    <tr><td>${cod}</td><td>${nombre}</td><td style="text-align:right;">${uni}</td>
+    <td style="text-align:right;" class="rate">${precio}</td>
+    <td style="text-align:right;font-weight:600;">${fmt(val)}</td></tr>`).join('');
+
+  document.getElementById('nomTotal').innerHTML = fmt(d.total) + ' <small>€</small>';
+}
+
+// ================= CAMBIOS (mensajes de última hora) =================
+// Formato esperado por línea: DD/MM/AAAA COD.SER DEP-ARR HH:MM HH:MM [Z] [(MODIFICADO)]
+function parseCambios(text){
+  const lineRe = /(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,3})\s+([A-Z]{3})-([A-Z]{3})\s+(\d{2}:\d{2})\s+(\d{2}:\d{2})\s*Z?/g;
+  const out = [];
+  let mm;
+  while((mm = lineRe.exec(text))){
+    const [, dateStr, codSer, dep, arr, t1, t2] = mm;
+    const [dd,mo,yyyy] = dateStr.split('/').map(Number);
+    const [h1,mi1] = t1.split(':').map(Number);
+    const [h2,mi2] = t2.split(':').map(Number);
+    const fini = new Date(Date.UTC(yyyy,mo-1,dd,h1,mi1));
+    let ffin = new Date(Date.UTC(yyyy,mo-1,dd,h2,mi2));
+    if(ffin <= fini) ffin = new Date(ffin.getTime()+86400000); // el servicio cruza medianoche
+    out.push({
+      codSer: codSer.toUpperCase(), codFun:'', dep: dep.toUpperCase(), arr: arr.toUpperCase(),
+      fini, ffin, dateKey: fini.toISOString().slice(0,10)
+    });
+  }
+  return out;
+}
+
+// Sustituye, fecha a fecha, las filas originales por las del mensaje de cambios.
+// Regla: un cambio "reemite" el día completo — se retira todo lo que empezaba ese día
+// en la programación base y se inserta lo nuevo, tal y como llega el mensaje de tripulación.
+function mergeCambios(rows, cambios){
+  if(cambios.length===0) return {merged: rows, affectedDates: []};
+  const affected = new Set(cambios.map(c=>c.dateKey));
+  const kept = rows.filter(r => !affected.has(r.fini.toISOString().slice(0,10)));
+  const merged = kept.concat(cambios).sort((a,b)=>a.fini-b.fini);
+  return {merged, affectedDates: [...affected].sort()};
+}
+
+// ================= PARSER DE PROGRAMACIÓN =================
+function parseRoster(text){
+  const lines = text.split('\n');
+  const dtRe = /(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})/g;
+  const rows = [];
+  for(const raw of lines){
+    const line = raw.trim();
+    if(!line) continue;
+    const matches = [...line.matchAll(dtRe)];
+    if(matches.length < 2) continue;
+    const m1 = matches[0], m2 = matches[1];
+    const codePart = line.substring(0, m1.index).trim().split(/\s+/).filter(Boolean);
+    const afterIdx = m2.index + m2[0].length;
+    const restPart = line.substring(afterIdx).trim().split(/\s+/).filter(Boolean);
+    const codSer = (codePart[0]||'').toUpperCase();
+    const codFun = (codePart[1]||'').toUpperCase();
+    const dep = (restPart[0]||'').toUpperCase();
+    const arr = (restPart[1]||'').toUpperCase();
+    function toDate(d,t){
+      const [dd,mm,yyyy] = d.split('/').map(Number);
+      const [HH,MM] = t.split(':').map(Number);
+      return new Date(Date.UTC(yyyy, mm-1, dd, HH, MM));
+    }
+    const fini = toDate(m1[1], m1[2]);
+    const ffin = toDate(m2[1], m2[2]);
+    if(isNaN(fini) || isNaN(ffin) || ffin <= fini) continue;
+    rows.push({codSer, codFun, fini, ffin, dep, arr});
+  }
+  rows.sort((a,b)=>a.fini-b.fini);
+  return rows;
+}
+
+function nightOverlapHours(start, end){
+  let total = 0;
+  let cursor = new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth(),start.getUTCDate()));
+  while(cursor < end){
+    const y=cursor.getUTCFullYear(), mo=cursor.getUTCMonth(), da=cursor.getUTCDate();
+    const dayStart = new Date(Date.UTC(y,mo,da,0,0));
+    const night1End = new Date(Date.UTC(y,mo,da,8,0));
+    const night2Start = new Date(Date.UTC(y,mo,da,21,0));
+    const nextDay = new Date(dayStart.getTime()+86400000);
+    const s1s = start>dayStart?start:dayStart, s1e = end<night1End?end:night1End;
+    if(s1e>s1s) total += (s1e-s1s)/3600000;
+    const s2s = start>night2Start?start:night2Start, s2e = end<nextDay?end:nextDay;
+    if(s2e>s2s) total += (s2e-s2s)/3600000;
+    cursor = nextDay;
+  }
+  return total;
+}
+
+function markAwayDays(startDate, endDate, locCode, map){
+  const rank = {nacional:1, internacional:2, larga:3};
+  let d = new Date(Date.UTC(startDate.getUTCFullYear(),startDate.getUTCMonth(),startDate.getUTCDate()));
+  const endD = new Date(Date.UTC(endDate.getUTCFullYear(),endDate.getUTCMonth(),endDate.getUTCDate()));
+  const tipo = tipoAirport(locCode);
+  while(d <= endD){
+    const key = d.toISOString().slice(0,10);
+    if(!map[key] || rank[tipo] > rank[map[key]]) map[key] = tipo;
+    d = new Date(d.getTime()+86400000);
+  }
+}
+
+function procesarProgramacion(){
+  const text = document.getElementById('rosterInput').value;
+  const cambiosText = document.getElementById('cambiosInput').value;
+  let rows = parseRoster(text);
+  const summaryEl = document.getElementById('parseSummary');
+  if(rows.length === 0){
+    summaryEl.innerHTML = '<div class="note warn" style="margin-top:10px;"><b>No se han detectado filas válidas.</b> Comprueba que has pegado el bloque con las líneas de COD.SER / fechas / DEP / ARR.</div>';
+    return;
+  }
+
+  const cambios = parseCambios(cambiosText);
+  const {merged, affectedDates} = mergeCambios(rows, cambios);
+  rows = merged;
+
+  let horasVuelo=0, horasActividad=0, horasNocturnas=0, imaginarias=0, diasNoTrabajados=0, horasActExtra=0;
+  const vuelosExtraordinarios = [];
+  const awayMap = {};
+  let currentLoc = BASE;
+  let prevEnd = null;
+  const rutasNoEncontradas = new Set();
+
+  for(const r of rows){
+    // Rellenar huecos entre filas: si estábamos fuera de MAD, esos días también cuentan como fuera de base
+    if(prevEnd && r.fini > prevEnd && currentLoc !== BASE){
+      const gapEnd = new Date(r.fini.getTime()-1000);
+      markAwayDays(prevEnd, gapEnd, currentLoc, awayMap);
+    }
+
+    if(r.codSer==='VA' || r.codSer==='EX'){
+      // Art. 63: cada día natural de vacaciones/excedencia con reserva prorratea (1/30) los
+      // umbrales de 55h, 75h y 160h.
+      diasNoTrabajados += (r.ffin - r.fini)/86400000;
+      currentLoc = r.arr || BASE;
+      prevEnd = r.ffin;
+      continue;
+    }
+    if(r.codSer==='LI' || r.codSer==='LN' || r.codSer==='SA'){
+      currentLoc = r.arr || BASE;
+      prevEnd = r.ffin;
+      continue;
+    }
+    if(r.codSer==='IM'){
+      imaginarias++;
+      // Art. 59: la imaginaria devenga, dentro de mínimos, 12h de actividad si es en el
+      // domicilio del tripulante (asumido por defecto) o 24h en cualquier otro caso.
+      horasActividad += 12;
+      currentLoc = r.arr || BASE;
+      prevEnd = r.ffin;
+      continue;
+    }
+
+    // Solo los servicios de vuelo reales (CO / CR) generan horas de actividad y nocturnidad.
+    // La instrucción en tierra (OC/SR), imaginaria, libres y "sin actividad" quedan excluidos.
+    const esVueloReal = (r.codSer==='CO' || r.codSer==='CR');
+    let durH = 0;
+    if(esVueloReal){
+      durH = (r.ffin - r.fini)/3600000;
+      horasActividad += durH;
+      // Art. 76: si el servicio acumula >=4h dentro de 21:00-08:00 UTC, TODO el servicio
+      // se retribuye como nocturno (no solo el solape).
+      const solapeNocturno = nightOverlapHours(r.fini, r.ffin);
+      if(solapeNocturno >= 4){
+        horasNocturnas += durH;
+      }
+    }
+
+    if(r.codSer==='CO' || r.codSer==='CR'){
+      const key1 = r.dep+r.arr, key2 = r.arr+r.dep;
+      let perfil = PERFILES_787[key1];
+      if(perfil===undefined) perfil = PERFILES_787[key2];
+      if(perfil===undefined){
+        perfil = Math.max(durH-1.25,0);
+        rutasNoEncontradas.add(r.dep+'-'+r.arr);
+      }
+      horasVuelo += perfil;
+      if(r.dep!==BASE || r.arr!==BASE){
+        const loc = r.arr!==BASE ? r.arr : r.dep;
+        markAwayDays(r.fini, r.ffin, loc, awayMap);
+      }
+    }
+    currentLoc = r.arr || BASE;
+    prevEnd = r.ffin;
+  }
+
+  // Actividad extraordinaria: se evalúa por VIAJE completo (ida+vuelta), no por vuelo suelto.
+  // Si la ida sale de MAD después de las 21:00 UTC, o el destino es BOG/PTY, se suman las horas
+  // de actividad de ida Y de vuelta al P. ACT. LAB.
+  {
+    const vuelos = rows.filter(r=>r.codSer==='CO'||r.codSer==='CR').sort((a,b)=>a.fini-b.fini);
+    let i = 0;
+    while(i < vuelos.length){
+      const r = vuelos[i];
+      if(r.dep===BASE && r.arr!==BASE){
+        // Buscar el siguiente vuelo que sea la vuelta de este mismo destino
+        let j = i+1, vuelta = null;
+        while(j < vuelos.length){
+          if(vuelos[j].dep===r.arr && vuelos[j].arr===BASE){ vuelta = vuelos[j]; break; }
+          if(vuelos[j].dep===BASE) break; // empezó otro viaje antes de cerrar este
+          j++;
+        }
+        const durIda = (r.ffin-r.fini)/3600000;
+        const salidaMin = r.fini.getUTCHours()*60 + r.fini.getUTCMinutes();
+        const tardia = salidaMin > 21*60;
+        const bogpty = (r.arr==='BOG'||r.arr==='PTY');
+        if(tardia || bogpty){
+          horasActExtra += durIda;
+          vuelosExtraordinarios.push(`${r.fini.toISOString().slice(0,10)} ${r.dep}→${r.arr} (ida${tardia?', salida MAD>21:00z':''}${bogpty?', BOG/PTY':''})`);
+          if(vuelta){
+            const durVuelta = (vuelta.ffin-vuelta.fini)/3600000;
+            horasActExtra += durVuelta;
+            vuelosExtraordinarios.push(`${vuelta.fini.toISOString().slice(0,10)} ${vuelta.dep}→${vuelta.arr} (vuelta del mismo viaje)`);
+          }
+        }
+        i = vuelta ? j+1 : i+1;
+      } else {
+        i++;
+      }
+    }
+  }
+
+  // Convertir rachas de días fuera en dietas — razonando cada día según Anexo III
+  const dias = Object.keys(awayMap).sort();
+  const dietaCounts = {0:0,1:0,3:0,4:0,8:0,9:0}; // indices DNC,DNP,DIC,DIP,DLC,DLP
+  const tipoIdx = {nacional:{contacto:0,pernocta:1}, internacional:{contacto:3,pernocta:4}, larga:{contacto:8,pernocta:9}};
+  const tipoLabel = {nacional:'Nacional', internacional:'Internacional', larga:'Larga distancia'};
+  const reasoningLog = [];
+  let streak = [];
+  function flushStreak(){
+    if(streak.length===0) return;
+    const worst = streak.reduce((acc,d)=>{
+      const rank={nacional:1,internacional:2,larga:3};
+      return rank[awayMap[d]]>rank[acc]?awayMap[d]:acc;
+    }, 'nacional');
+    if(streak.length===1){
+      dietaCounts[tipoIdx[worst].contacto]++;
+      reasoningLog.push({
+        date: streak[0], codigo: tipoIdx[worst].contacto===0?'DNC':tipoIdx[worst].contacto===3?'DIC':'DLC',
+        motivo: `${tipoLabel[worst]}, sin pernocta. Ida y vuelta el mismo día natural, no hay disponibilidad de hotel entre 23:00–07:00 fuera de base — Anexo III, criterio "contacto" (no se cumplen las condiciones de pernocta del art. 81).`
+      });
+    } else {
+      for(let i=0;i<streak.length-1;i++){
+        const codigo = tipoIdx[worst].pernocta===1?'DNP':tipoIdx[worst].pernocta===4?'DIP':'DLP';
+        reasoningLog.push({
+          date: streak[i], codigo,
+          motivo: `${tipoLabel[worst]}, pernocta. Tras finalizar la actividad de este día el tripulante permanece fuera de base con hotel disponible entre 23:00–07:00 (o llegada a base ≥05:00 al día siguiente) — Anexo III: "la pernocta se aplicará al primer día".`
+        });
+      }
+      const codigoC = tipoIdx[worst].contacto===0?'DNC':tipoIdx[worst].contacto===3?'DIC':'DLC';
+      reasoningLog.push({
+        date: streak[streak.length-1], codigo: codigoC,
+        motivo: `${tipoLabel[worst]}, contacto. Último día del viaje: hay regreso a base ese mismo día, por lo que no se genera una nueva pernocta — se abona la dieta de contacto correspondiente al día de llegada.`
+      });
+      dietaCounts[tipoIdx[worst].pernocta] += streak.length-1;
+      dietaCounts[tipoIdx[worst].contacto] += 1;
+    }
+    streak = [];
+  }
+  let lastDate = null;
+  dias.forEach(d=>{
+    const dt = new Date(d+'T00:00:00Z');
+    if(lastDate && (dt-lastDate)/86400000 > 1){ flushStreak(); }
+    streak.push(d);
+    lastDate = dt;
+  });
+  flushStreak();
+
+  // Rellenar campos del formulario
+  document.getElementById('horasVuelo').value = horasVuelo.toFixed(1);
+  document.getElementById('horasActividad').value = horasActividad.toFixed(1);
+  document.getElementById('horasNocturnas').value = horasNocturnas.toFixed(1);
+  document.getElementById('numImaginarias').value = imaginarias;
+  document.getElementById('diasNoTrabajados').value = Math.round(diasNoTrabajados);
+  document.getElementById('horasActExtra').value = horasActExtra.toFixed(1);
+  Object.keys(dietaCounts).forEach(idx=>{
+    const el = document.getElementById('dieta_'+idx);
+    if(el) el.value = dietaCounts[idx];
+  });
+
+  // Resumen visual
+  const labelsIdx = {0:'DNC',1:'DNP',3:'DIC',4:'DIP',8:'DLC',9:'DLP'};
+  let dietaRowsHtml = Object.keys(dietaCounts).filter(i=>dietaCounts[i]>0)
+    .map(i=>`<tr><td>${labelsIdx[i]}</td><td>${dietaCounts[i]}</td></tr>`).join('');
+  if(!dietaRowsHtml) dietaRowsHtml = '<tr><td colspan="2">Sin días fuera de base detectados</td></tr>';
+
+  let reasoningHtml = reasoningLog.sort((a,b)=>a.date.localeCompare(b.date)).map(r=>
+    `<tr><td>${r.date}</td><td><b>${r.codigo}</b></td><td style="font-size:11px;color:var(--dim);">${r.motivo}</td></tr>`
+  ).join('');
+  if(!reasoningHtml) reasoningHtml = '<tr><td colspan="3">Sin días fuera de base este mes</td></tr>';
+
+  let cambiosHtml = '';
+  if(affectedDates.length>0){
+    cambiosHtml = `<div class="note" style="margin-top:10px;border-color:var(--cyan);background:rgba(94,224,208,.06);">
+      <b style="color:var(--cyan);">Cambios aplicados.</b> Se sustituyó la programación original de estos días
+      por el mensaje de cambios: <b>${affectedDates.join(', ')}</b>.
+    </div>`;
+  }
+
+  let warnRutas = '';
+  if(rutasNoEncontradas.size>0){
+    warnRutas = `<div class="note warn" style="margin-top:10px;">
+      <b>Rutas sin perfil B787 encontrado (horas de vuelo estimadas):</b> ${[...rutasNoEncontradas].join(', ')}
+    </div>`;
+  }
+
+  const cal = buildCalendarData(rows, text);
+  renderCalendar(cal);
+
+  summaryEl.innerHTML = `
+    <b style="color:var(--amber);">Programación procesada</b> — ${rows.length} filas detectadas${cambios.length?` (${cambios.length} de cambios)`:''}.
+    <span style="color:var(--cyan);">Calendario generado en la pestaña "Calendario".</span>
+    ${cambiosHtml}
+    <table>
+      <tr><th>Horas de vuelo</th><td>${fmt(horasVuelo)} h</td></tr>
+      <tr><th>Horas de actividad</th><td>${fmt(horasActividad)} h</td></tr>
+      <tr><th>Horas nocturnas</th><td>${fmt(horasNocturnas)} h</td></tr>
+      <tr><th>Imaginarias</th><td>${imaginarias}</td></tr>
+      <tr><th>Actividad extraordinaria</th><td>${fmt(horasActExtra)} h${vuelosExtraordinarios.length?' — '+vuelosExtraordinarios.join('; '):''}</td></tr>
+    </table>
+    <table>
+      <tr><th>Dieta</th><th>Días</th></tr>
+      ${dietaRowsHtml}
+    </table>
+    <div style="margin-top:12px;font-weight:700;color:var(--amber);font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Razonamiento día a día (Anexo III)</div>
+    <table>
+      <tr><th>Fecha</th><th>Dieta</th><th>Motivo</th></tr>
+      ${reasoningHtml}
+    </table>
+    ${warnRutas}
+  `;
+
+  // Calcula la nómina automáticamente con los datos ya rellenados — sin pasos manuales.
+  calcular();
+}
+
+// ================= TABS =================
+function switchTab(name){
+  document.getElementById('tabCalc').classList.toggle('active', name==='calc');
+  document.getElementById('tabCal').classList.toggle('active', name==='cal');
+  document.getElementById('tabNom').classList.toggle('active', name==='nom');
+  document.getElementById('tabBtnCalc').classList.toggle('active', name==='calc');
+  document.getElementById('tabBtnCal').classList.toggle('active', name==='cal');
+  document.getElementById('tabBtnNom').classList.toggle('active', name==='nom');
+}
+
+// ================= CALENDARIO =================
+const TYPE_META = {
+  LI:{label:'Libre', cls:'libre'},
+  LN:{label:'Libre negoc.', cls:'libre'},
+  SA:{label:'Sin actividad', cls:'sa'},
+  IM:{label:'Imaginaria', cls:'imaginaria'},
+  VA:{label:'Vacaciones', cls:'vacaciones'},
+  EX:{label:'Excedencia', cls:'excedencia'},
+  RM:{label:'Reconoc. médico', cls:'medico'},
+  OC:{label:'Curso online', cls:'formacion'},
+  SR:{label:'Simulador', cls:'formacion'},
+};
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DOW = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+
+function buildCalendarData(rows, rosterText){
+  let year, month;
+  const m = rosterText.match(/PROGRAMACION\s+DEL\s+(\d{2})\/(\d{2})\/(\d{4})\s+AL\s+(\d{2})\/(\d{2})\/(\d{4})/i);
+  if(m){ month = parseInt(m[2],10)-1; year = parseInt(m[3],10); }
+  else if(rows.length){ month = rows[0].fini.getUTCMonth(); year = rows[0].fini.getUTCFullYear(); }
+  else { const now = new Date(); month = now.getUTCMonth(); year = now.getUTCFullYear(); }
+
+  const daysInMonth = new Date(Date.UTC(year, month+1, 0)).getUTCDate();
+  const dayEvents = {};
+  function addEvent(key, ev){ if(!dayEvents[key]) dayEvents[key]=[]; dayEvents[key].push(ev); }
+
+  for(const r of rows){
+    const finiKey = r.fini.toISOString().slice(0,10);
+    const ffinKey = r.ffin.toISOString().slice(0,10);
+    if(r.codSer==='CO' || (r.codSer==='CR' && r.dep && r.arr && r.dep!==r.arr)){
+      const hIni = r.fini.toISOString().slice(11,16);
+      const hFin = r.ffin.toISOString().slice(11,16);
+      addEvent(finiKey, {cls:'vuelo', label:`✈ ${r.dep}→${r.arr} ${hIni}z`});
+      if(ffinKey!==finiKey) addEvent(ffinKey, {cls:'vuelo', label:`✈ lleg. ${r.arr} ${hFin}z`});
+    } else {
+      const meta = TYPE_META[r.codSer] || {label:r.codSer, cls:'otro'};
+      let d = new Date(Date.UTC(r.fini.getUTCFullYear(),r.fini.getUTCMonth(),r.fini.getUTCDate()));
+      let endD = new Date(Date.UTC(r.ffin.getUTCFullYear(),r.ffin.getUTCMonth(),r.ffin.getUTCDate()));
+      if(r.ffin.getUTCHours()===0 && r.ffin.getUTCMinutes()===0 && endD>d){
+        endD = new Date(endD.getTime()-86400000);
+      }
+      while(d<=endD){ addEvent(d.toISOString().slice(0,10), {cls:meta.cls, label:meta.label}); d = new Date(d.getTime()+86400000); }
+    }
+  }
+  return {year, month, daysInMonth, dayEvents};
+}
+
+function renderCalendar(cal){
+  document.getElementById('calTitle').textContent = `${MESES[cal.month]} ${cal.year}`;
+  window.ultimoCalendario = cal; // guardado para exportar a PDF sin recalcular
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  DOW.forEach(d=>{
+    const el = document.createElement('div'); el.className='cal-dow'; el.textContent=d; grid.appendChild(el);
+  });
+  const firstDow = (new Date(Date.UTC(cal.year, cal.month, 1)).getUTCDay()+6)%7; // 0=lunes
+  for(let i=0;i<firstDow;i++){ const e=document.createElement('div'); e.className='cal-cell empty'; grid.appendChild(e); }
+  for(let day=1; day<=cal.daysInMonth; day++){
+    const key = `${cal.year}-${String(cal.month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const cell = document.createElement('div'); cell.className='cal-cell';
+    const num = document.createElement('div'); num.className='cal-daynum'; num.textContent=day; cell.appendChild(num);
+    (cal.dayEvents[key]||[]).forEach(ev=>{
+      const chip = document.createElement('div'); chip.className='cal-chip '+ev.cls; chip.textContent=ev.label;
+      cell.appendChild(chip);
+    });
+    grid.appendChild(cell);
+  }
+  const legendItems = [
+    ['vuelo','Vuelo'],['libre','Libre'],['sa','Sin actividad'],['imaginaria','Imaginaria'],
+    ['vacaciones','Vacaciones'],['excedencia','Excedencia'],['medico','Reconoc. médico'],['formacion','Formación/simulador'],
+  ];
+  document.getElementById('calLegend').innerHTML = legendItems.map(([cls,label])=>
+    `<span><span class="dot cal-chip ${cls}" style="width:8px;height:8px;padding:0;"></span>${label}</span>`).join('');
+}
+
+// ================= GENERADOR DE PDF PROPIO (sin librerías externas) =================
+const CHIP_COLORS = {
+  vuelo:      {bg:'#16332f', fg:'#5ee0d0'},
+  libre:      {bg:'#16202f', fg:'#7d90ac'},
+  sa:         {bg:'#101a26', fg:'#7d90ac'},
+  imaginaria: {bg:'#3a2c10', fg:'#ffb020'},
+  vacaciones: {bg:'#123324', fg:'#6bffb0'},
+  excedencia: {bg:'#2c1f3d', fg:'#c88cff'},
+  medico:     {bg:'#3a1414', fg:'#ff6b6b'},
+  formacion:  {bg:'#16332f', fg:'#5ee0d0'},
+  otro:       {bg:'#16202f', fg:'#7d90ac'},
+};
+
+function renderCalendarToCanvas(cal){
+  const cols=7, cellW=210, cellH=118, headerH=44, titleH=54, pad=14;
+  const firstDow = (new Date(Date.UTC(cal.year, cal.month, 1)).getUTCDay()+6)%7;
+  const rows = Math.ceil((cal.daysInMonth + firstDow)/7);
+  const canvasW = pad*2 + cols*cellW;
+  const canvasH = pad*2 + titleH + headerH + rows*cellH;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasW; canvas.height = canvasH;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#060d1a';
+  ctx.fillRect(0,0,canvasW,canvasH);
+
+  ctx.fillStyle = '#ffb020';
+  ctx.font = 'bold 26px sans-serif';
+  ctx.fillText(`${MESES[cal.month]} ${cal.year}`.toUpperCase(), pad, pad+32);
+
+  const gridTop = pad+titleH;
+  ctx.font = '600 13px sans-serif';
+  ctx.fillStyle = '#7d90ac';
+  DOW.forEach((d,i)=>{
+    ctx.fillText(d.toUpperCase(), pad+i*cellW+8, gridTop+22);
+  });
+
+  const cellsTop = gridTop+headerH;
+  for(let day=1; day<=cal.daysInMonth; day++){
+    const idx = firstDow+day-1;
+    const col = idx%7, row = Math.floor(idx/7);
+    const cx = pad+col*cellW, cy = cellsTop+row*cellH;
+    ctx.strokeStyle = '#1c2c47';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx+2, cy+2, cellW-4, cellH-4);
+    ctx.fillStyle = '#dfe8f5';
+    ctx.font = 'bold 15px monospace';
+    ctx.fillText(String(day), cx+10, cy+22);
+
+    const key = `${cal.year}-${String(cal.month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const events = cal.dayEvents[key]||[];
+    let ey = cy+38;
+    events.forEach(ev=>{
+      if(ey > cy+cellH-14) return; // no caben más chips en la celda
+      const colors = CHIP_COLORS[ev.cls] || CHIP_COLORS.otro;
+      ctx.fillStyle = colors.bg;
+      const chipW = cellW-16;
+      ctx.fillRect(cx+8, ey, chipW, 16);
+      ctx.fillStyle = colors.fg;
+      ctx.font = '10px monospace';
+      let texto = ev.label;
+      while(ctx.measureText(texto).width > chipW-8 && texto.length>3){
+        texto = texto.slice(0,-2)+'…';
+      }
+      ctx.fillText(texto, cx+12, ey+12);
+      ey += 19;
+    });
+  }
+  return canvas;
+}
+
+function strToBytes(s){
+  const arr = new Uint8Array(s.length);
+  for(let i=0;i<s.length;i++) arr[i] = s.charCodeAt(i) & 0xFF;
+  return arr;
+}
+
+// Construye un PDF de una página con una imagen JPEG embebida, sin librerías externas.
+function buildPdfFromJpeg(jpegBytes, imgWidthPx, imgHeightPx){
+  const pageW = 841.89, pageH = 595.28; // A4 apaisado, en puntos
+  const margin = 20;
+  const maxW = pageW - margin*2, maxH = pageH - margin*2;
+  let drawW = maxW, drawH = maxW * imgHeightPx/imgWidthPx;
+  if(drawH > maxH){ drawH = maxH; drawW = maxH * imgWidthPx/imgHeightPx; }
+  const x = (pageW-drawW)/2, y = (pageH-drawH)/2;
+  const contentStr = `q ${drawW.toFixed(2)} 0 0 ${drawH.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /Im0 Do Q`;
+  const contentBytes = strToBytes(contentStr);
+
+  const chunks = [];
+  let offset = 0;
+  const objOffsets = [0];
+  function push(bytes){ chunks.push(bytes); offset += bytes.length; }
+  function pushStr(s){ push(strToBytes(s)); }
+
+  pushStr('%PDF-1.4\n');
+  objOffsets[1]=offset; pushStr('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  objOffsets[2]=offset; pushStr('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+  objOffsets[3]=offset; pushStr(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`);
+  objOffsets[4]=offset; pushStr(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgWidthPx} /Height ${imgHeightPx} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`);
+  push(jpegBytes);
+  pushStr('\nendstream\nendobj\n');
+  objOffsets[5]=offset; pushStr(`5 0 obj\n<< /Length ${contentBytes.length} >>\nstream\n`);
+  push(contentBytes);
+  pushStr('\nendstream\nendobj\n');
+
+  const xrefStart = offset;
+  let xref = 'xref\n0 6\n0000000000 65535 f \n';
+  for(let i=1;i<=5;i++) xref += String(objOffsets[i]).padStart(10,'0') + ' 00000 n \n';
+  pushStr(xref);
+  pushStr(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`);
+
+  const total = chunks.reduce((a,c)=>a+c.length,0);
+  const out = new Uint8Array(total);
+  let p=0; for(const c of chunks){ out.set(c,p); p+=c.length; }
+  return out;
+}
+
+function exportarPDF(evt){
+  switchTab('cal');
+  const btn = evt ? evt.target : null;
+  const textoOriginal = btn ? btn.textContent : '';
+  if(btn){ btn.textContent = 'Generando...'; btn.disabled = true; }
+  const restaurarBoton = ()=>{ if(btn){ btn.textContent = textoOriginal; btn.disabled = false; } };
+
+  const cal = window.ultimoCalendario;
+  if(!cal){
+    alert('Primero procesa una programación en la pestaña Calculadora para generar el calendario.');
+    restaurarBoton();
+    return;
+  }
+
+  try{
+    const canvas = renderCalendarToCanvas(cal);
+    canvas.toBlob(blob=>{
+      if(!blob){ alert('No se ha podido generar la imagen del calendario.'); restaurarBoton(); return; }
+      blob.arrayBuffer().then(buf=>{
+        const jpegBytes = new Uint8Array(buf);
+        const pdfBytes = buildPdfFromJpeg(jpegBytes, canvas.width, canvas.height);
+        const pdfBlob = new Blob([pdfBytes], {type:'application/pdf'});
+        const nombreArchivo = 'calendario-'+document.getElementById('calTitle').textContent.replace(/\s+/g,'-')+'.pdf';
+        const pdfBlobUrl = URL.createObjectURL(pdfBlob);
+        const imgBlobUrl = URL.createObjectURL(blob);
+
+        // Vista previa: mostramos la IMAGEN (siempre renderizable, no necesita lector de PDF)
+        // para confirmar que el calendario se ha generado bien, sea cual sea el problema con el PDF.
+        document.getElementById('pdfPreviewBox').style.display = 'block';
+        document.getElementById('pdfPreviewFrame').src = imgBlobUrl;
+        const link = document.getElementById('pdfManualLinkWrap2');
+        link.href = pdfBlobUrl;
+        link.download = nombreArchivo;
+        document.getElementById('pdfPreviewBox').scrollIntoView({behavior:'smooth', block:'start'});
+        restaurarBoton();
+      });
+    }, 'image/jpeg', 0.92);
+  }catch(err){
+    console.error(err);
+    alert('No se ha podido generar el PDF: '+err.message);
+    restaurarBoton();
+  }
+}
+
+document.getElementById('rol').addEventListener('change', ()=>{poblarNiveles(); poblarDietas();});
+document.getElementById('anio').addEventListener('change', actualizarTarifasDietas);
+document.getElementById('incAdicional').addEventListener('input', actualizarTarifasDietas);
+
+poblarNiveles();
+poblarDietas();
+</script>
+</body>
+</html>
