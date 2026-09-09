@@ -198,6 +198,7 @@
     .cal-title{color:#000;}
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -226,12 +227,20 @@
       <div class="checkrow" style="cursor:default;">
         <label style="margin:0;flex:1;">Modo de entrada</label>
         <select id="modoEntrada" style="width:auto;" onchange="cambiarModoEntrada()">
-          <option value="texto">Pegar programación (texto)</option>
+          <option value="pdf">Subir PDF "Programaciones publicadas" (AEA)</option>
+          <option value="texto">Pegar programación (texto, copia de respaldo)</option>
           <option value="manual">Introducir a mano (IATA)</option>
         </select>
       </div>
     </div>
-    <div id="bloqueTexto">
+    <div id="bloquePdf">
+      <div class="field">
+        <label>PDF de "Programaciones publicadas" descargado de AEA</label>
+        <input type="file" id="pdfInput" accept="application/pdf" onchange="cargarPdfProgramacion(event)">
+      </div>
+      <div id="pdfStatus" style="font-size:12px;color:var(--dim);margin-top:6px;"></div>
+    </div>
+    <div id="bloqueTexto" style="display:none;">
       <div class="field">
         <label>Pega aquí el texto de tu programación (formato PROGRAMACION DEL ... AL ...)</label>
         <textarea id="rosterInput" placeholder="TRIPULANTE: ...&#10;PROGRAMACION DEL 01/07/2025 AL 31/07/2025&#10;...&#10;   LI             01/07/2025 00:00 02/07/2025 00:00 MAD  MAD&#10;   CO       CO    03/07/2025 13:25 03/07/2025 22:45 MAD  MIA&#10;..."></textarea>
@@ -940,14 +949,18 @@ function markAwayDays(startDate, endDate, locCode, map){
 
 function procesarProgramacion(){
   const modo = document.getElementById('modoEntrada').value;
-  const text = modo === 'manual' ? generarTextoDesdeManual() : document.getElementById('rosterInput').value;
+  let text;
+  if(modo === 'manual') text = generarTextoDesdeManual();
+  else if(modo === 'pdf') text = textoPdfGenerado;
+  else text = document.getElementById('rosterInput').value;
   const cambiosText = document.getElementById('cambiosInput').value;
   let rows = parseRoster(text);
   const summaryEl = document.getElementById('parseSummary');
   if(rows.length === 0){
-    const msg = modo === 'manual'
-      ? '<b>No hay filas en la lista.</b> Añade al menos una entrada con el formulario de arriba.'
-      : '<b>No se han detectado filas válidas.</b> Comprueba que has pegado el bloque con las líneas de COD.SER / fechas / DEP / ARR.';
+    let msg;
+    if(modo === 'manual') msg = '<b>No hay filas en la lista.</b> Añade al menos una entrada con el formulario de arriba.';
+    else if(modo === 'pdf') msg = '<b>No hay ningún PDF procesado todavía.</b> Sube el archivo "Programaciones publicadas" en el campo de arriba.';
+    else msg = '<b>No se han detectado filas válidas.</b> Comprueba que has pegado el bloque con las líneas de COD.SER / fechas / DEP / ARR.';
     summaryEl.innerHTML = '<div class="note warn" style="margin-top:10px;">'+msg+'</div>';
     return;
   }
@@ -1536,8 +1549,129 @@ const TIPOS_SIN_RUTA = new Set(['IM','SA','LI','LN','RM','OC','SR','VA','EX']);
 
 function cambiarModoEntrada(){
   const modo = document.getElementById('modoEntrada').value;
+  document.getElementById('bloquePdf').style.display = modo==='pdf' ? 'block' : 'none';
   document.getElementById('bloqueTexto').style.display = modo==='texto' ? 'block' : 'none';
   document.getElementById('bloqueManual').style.display = modo==='manual' ? 'block' : 'none';
+}
+
+// ================= MODO PDF (Programaciones publicadas AEA) =================
+const WD_MAP = {L:1,M:2,X:3,J:4,V:5,S:6,D:0}; // 0=domingo, como getUTCDay()
+let textoPdfGenerado = ''; // último texto derivado del PDF, listo para parseRoster()
+
+async function cargarPdfProgramacion(evt){
+  const file = evt.target.files[0];
+  const statusEl = document.getElementById('pdfStatus');
+  if(!file) return;
+  statusEl.textContent = 'Leyendo PDF…';
+  statusEl.style.color = 'var(--dim)';
+
+  if(typeof pdfjsLib === 'undefined'){
+    statusEl.textContent = 'No se ha podido cargar la librería de lectura de PDF (probablemente sin conexión). Usa "Pegar programación (texto)" como respaldo mientras tanto.';
+    statusEl.style.color = 'var(--red)';
+    return;
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js';
+
+  try{
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+    let lineasTexto = [];
+    let fechaGeneracion = null;
+
+    for(let p=1; p<=pdf.numPages; p++){
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      // Agrupar los fragmentos de texto por su posición Y (misma fila de la tabla)
+      const filas = {};
+      content.items.forEach(item=>{
+        const y = Math.round(item.transform[5]);
+        if(!filas[y]) filas[y] = [];
+        filas[y].push({x:item.transform[4], str:item.str});
+      });
+      const ysOrdenados = Object.keys(filas).map(Number).sort((a,b)=>b-a);
+      ysOrdenados.forEach(y=>{
+        const linea = filas[y].sort((a,b)=>a.x-b.x).map(f=>f.str).join(' ').replace(/\s+/g,' ').trim();
+        if(linea) lineasTexto.push(linea);
+      });
+      // Buscar la fecha de generación del informe ("Fecha: DD/MM/AAAA HH:MM")
+      const todoElTexto = lineasTexto.join(' ');
+      const fm = todoElTexto.match(/Fecha:\s*(\d{2})\/(\d{2})\/(\d{4})/);
+      if(fm && !fechaGeneracion){
+        fechaGeneracion = new Date(Date.UTC(+fm[3], +fm[2]-1, +fm[1]));
+      }
+    }
+
+    const resultado = parsearProgramacionPdf(lineasTexto, fechaGeneracion || new Date());
+    if(!resultado || resultado.filas.length===0){
+      statusEl.textContent = 'No se han reconocido filas de programación en este PDF. Comprueba que es el informe "Programaciones publicadas" de AEA.';
+      statusEl.style.color = 'var(--red)';
+      return;
+    }
+    textoPdfGenerado = resultado.texto;
+    statusEl.innerHTML = `<span style="color:var(--green);">✓ PDF leído correctamente</span> — ${resultado.filas.length} servicios detectados de ${resultado.mesAnio.mes}/${resultado.mesAnio.anio}. Pulsa "Procesar programación" para calcular.`;
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = 'Error leyendo el PDF: '+err.message+'. Usa "Pegar programación (texto)" como respaldo.';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+// Reconoce el formato tabular "PROGRAMACIONES PUBLICADAS" (DÍA/SERVICIO/TRAYECTO/Nº VUELO/FUNCIÓN/HORARIO)
+// y lo convierte al mismo formato de texto que entiende parseRoster().
+function parsearProgramacionPdf(lineasTexto, fechaGeneracion){
+  const rowRe = /^(\d{2})\s*\/\s*([A-ZÁÉÍÓÚÑ])\s+([A-Z]{2,3})\/(\S+)\s+(.*?)\s+(\d{2}:\d{2})\s*\/\s*(\d{2}:\d{2})\s*$/;
+  const parsed = [];
+  for(const raw of lineasTexto){
+    const line = raw.trim();
+    const m = line.match(rowRe);
+    if(!m) continue;
+    const [,day,wd,servicio,,middle,horaIni,horaFin] = m;
+    let dep, arr;
+    const routeMatch = middle.match(/^([A-Z]{3})\s*-\s*([A-Z]{3})/);
+    if(routeMatch){ dep=routeMatch[1]; arr=routeMatch[2]; }
+    else { const single = middle.match(/^([A-Z]{3})/); dep=arr=single?single[1]:'MAD'; }
+    parsed.push({day:+day, wd, servicio, dep, arr, horaIni, horaFin});
+  }
+  if(parsed.length===0) return null;
+
+  // Inferir mes/año: buscamos el mes cercano a la fecha de generación cuyo día 1 encaje
+  // con la letra de día de la semana de la primera fila, y que tenga suficientes días.
+  let mesAnio = null;
+  const ultimoDia = Math.max(...parsed.map(r=>r.day));
+  for(let dm=-1; dm<=2 && !mesAnio; dm++){
+    const d = new Date(Date.UTC(fechaGeneracion.getUTCFullYear(), fechaGeneracion.getUTCMonth()+dm, 1));
+    const year=d.getUTCFullYear(), month=d.getUTCMonth();
+    const diasEnMes = new Date(Date.UTC(year, month+1, 0)).getUTCDate();
+    if(diasEnMes < ultimoDia) continue;
+    const wdCalculado = new Date(Date.UTC(year, month, parsed[0].day)).getUTCDay();
+    if(wdCalculado === WD_MAP[parsed[0].wd]) mesAnio = {year, month};
+  }
+  if(!mesAnio) return null;
+
+  // Fusionar FI (firma/reporte) con el CO siguiente en un único servicio de vuelo;
+  // ignorar HO (hotel) y TR (traslado), que son tiempo de descanso/logística, no actividad.
+  const filasFinales = [];
+  for(let i=0;i<parsed.length;i++){
+    const r = parsed[i];
+    if(r.servicio==='HO' || r.servicio==='TR' || r.servicio==='FI') continue;
+    let horaIniUsar = r.horaIni;
+    if(r.servicio==='CO' && i>0 && parsed[i-1].servicio==='FI' && parsed[i-1].day===r.day){
+      horaIniUsar = parsed[i-1].horaIni;
+    }
+    const [hh,mm] = horaIniUsar.split(':').map(Number);
+    const fini = new Date(Date.UTC(mesAnio.year, mesAnio.month, r.day, hh, mm));
+    const [hh2,mm2] = r.horaFin.split(':').map(Number);
+    let ffin = new Date(Date.UTC(mesAnio.year, mesAnio.month, r.day, hh2, mm2));
+    if(ffin <= fini) ffin = new Date(ffin.getTime()+86400000);
+    filasFinales.push({codSer:r.servicio, dep:r.dep, arr:r.arr, fini, ffin});
+  }
+
+  function dfmt(d){
+    return String(d.getUTCDate()).padStart(2,'0')+'/'+String(d.getUTCMonth()+1).padStart(2,'0')+'/'+d.getUTCFullYear()+' '+
+      String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0');
+  }
+  const texto = filasFinales.map(f=>`${f.codSer} ${dfmt(f.fini)} ${dfmt(f.ffin)} ${f.dep} ${f.arr}`).join('\n');
+  return {texto, filas: filasFinales, mesAnio: {mes: mesAnio.month+1, anio: mesAnio.year}};
 }
 
 function actualizarCamposManual(){
