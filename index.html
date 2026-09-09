@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Nómina AEA · Calculadora V Convenio</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#060d1a">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nómina AEA">
 <style>
   @import url('https://cdnjs.cloudflare.com/ajax/libs/JetBrains-Mono/2.304/jetbrains-mono.min.css');
 
@@ -49,12 +55,16 @@
   h2.section-title{
     font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);
     margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);
-    display:flex;align-items:center;gap:8px;
+    display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
   }
   h2.section-title .n{
     font:600 10px/1 'JetBrains Mono',monospace;color:#000;background:var(--amber);
     padding:3px 6px;border-radius:3px;
   }
+  h2.section-title .chev{margin-left:auto;font-size:12px;color:var(--dim);transition:transform .15s ease;}
+  h2.section-title.collapsed .chev{transform:rotate(-90deg);}
+  .collapsible{overflow:hidden;max-height:4000px;transition:max-height .25s ease, opacity .2s ease;opacity:1;}
+  .collapsible.collapsed{max-height:0 !important;opacity:0;pointer-events:none;margin:0 !important;}
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;}
 
@@ -210,13 +220,74 @@
   <div class="tab-panel active" id="tabCalc">
 
   <!-- 0. Programación -->
-  <h2 class="section-title"><span class="n">00</span> Programación mensual (opcional)</h2>
-  <div class="panel">
-    <div class="field">
-      <label>Pega aquí el texto de tu programación (formato PROGRAMACION DEL ... AL ...)</label>
-      <textarea id="rosterInput" placeholder="TRIPULANTE: ...&#10;PROGRAMACION DEL 01/07/2025 AL 31/07/2025&#10;...&#10;   LI             01/07/2025 00:00 02/07/2025 00:00 MAD  MAD&#10;   CO       CO    03/07/2025 13:25 03/07/2025 22:45 MAD  MIA&#10;..."></textarea>
+  <h2 class="section-title" onclick="toggleSection(this)"><span class="n">00</span> Programación mensual (opcional) <span class="chev">▾</span></h2>
+  <div class="panel collapsible">
+    <div class="field" id="modoTextoWrap">
+      <div class="checkrow" style="cursor:default;">
+        <label style="margin:0;flex:1;">Modo de entrada</label>
+        <select id="modoEntrada" style="width:auto;" onchange="cambiarModoEntrada()">
+          <option value="texto">Pegar programación (texto)</option>
+          <option value="manual">Introducir a mano (IATA)</option>
+        </select>
+      </div>
     </div>
-    <button class="btn-secondary" onclick="procesarProgramacion()">Procesar programación y rellenar campos</button>
+    <div id="bloqueTexto">
+      <div class="field">
+        <label>Pega aquí el texto de tu programación (formato PROGRAMACION DEL ... AL ...)</label>
+        <textarea id="rosterInput" placeholder="TRIPULANTE: ...&#10;PROGRAMACION DEL 01/07/2025 AL 31/07/2025&#10;...&#10;   LI             01/07/2025 00:00 02/07/2025 00:00 MAD  MAD&#10;   CO       CO    03/07/2025 13:25 03/07/2025 22:45 MAD  MIA&#10;..."></textarea>
+      </div>
+    </div>
+    <div id="bloqueManual" style="display:none;">
+      <div class="grid3">
+        <div class="field">
+          <label>Tipo</label>
+          <select id="manTipo" onchange="actualizarCamposManual()">
+            <option value="CO">Vuelo (CO)</option>
+            <option value="CR">Vuelo relevo (CR)</option>
+            <option value="IM">Imaginaria (IM)</option>
+            <option value="SA">Sin actividad (SA)</option>
+            <option value="LI">Libre (LI)</option>
+            <option value="LN">Libre negociable (LN)</option>
+            <option value="RM">Reconoc. médico (RM)</option>
+            <option value="OC">Curso online (OC)</option>
+            <option value="SR">Simulador (SR)</option>
+            <option value="VA">Vacaciones (VA)</option>
+            <option value="EX">Excedencia (EX)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Fecha inicio</label>
+          <input type="date" id="manFechaIni">
+        </div>
+        <div class="field">
+          <label>Hora inicio (UTC)</label>
+          <input type="time" id="manHoraIni" value="00:00">
+        </div>
+        <div class="field">
+          <label>Fecha fin</label>
+          <input type="date" id="manFechaFin">
+        </div>
+        <div class="field">
+          <label>Hora fin (UTC)</label>
+          <input type="time" id="manHoraFin" value="00:00">
+        </div>
+        <div class="field" id="manDepWrap">
+          <label>Origen (IATA)</label>
+          <input type="text" id="manDep" value="MAD" maxlength="3" style="text-transform:uppercase;">
+        </div>
+        <div class="field" id="manArrWrap">
+          <label>Destino (IATA)</label>
+          <input type="text" id="manArr" value="MAD" maxlength="3" style="text-transform:uppercase;">
+        </div>
+      </div>
+      <button class="btn-secondary" onclick="anadirFilaManual()">+ Añadir a la lista</button>
+      <table class="dietas-table" style="margin-top:12px;">
+        <thead><tr><th>Tipo</th><th>Inicio</th><th>Fin</th><th>Ruta</th><th></th></tr></thead>
+        <tbody id="manualTablaBody"></tbody>
+      </table>
+      <button class="btn-secondary" style="margin-top:10px;" onclick="limpiarManual()">Vaciar lista</button>
+    </div>
+    <button class="btn-secondary" style="margin-top:14px;" onclick="procesarProgramacion()">Procesar programación y rellenar campos</button>
     <div class="field" style="margin-top:16px;">
       <label>Cambios (mensajes de última hora que modifican la programación — opcional)</label>
       <textarea id="cambiosInput" style="min-height:90px;" placeholder="BONNY FVOR TOME NOTA:&#10;02/08/2026 CO MAD-COR 21:45 10:25 Z (MODIFICADO)&#10;04/08/2026 SA COR-COR 01:36 21:49 Z&#10;05/08/2026 CO COR-MAD 15:05 03:10 Z (MODIFICADO)&#10;FVOR CONF RECEP MSSG&#10;GRCS Y SLDS&#10;PROG"></textarea>
@@ -225,8 +296,8 @@
   </div>
 
   <!-- 1. Perfil -->
-  <h2 class="section-title"><span class="n">01</span> Perfil retributivo</h2>
-  <div class="panel">
+  <h2 class="section-title" onclick="toggleSection(this)"><span class="n">01</span> Perfil retributivo <span class="chev">▾</span></h2>
+  <div class="panel collapsible">
     <div class="grid">
       <div class="field">
         <label>Rol</label>
@@ -264,8 +335,8 @@
   </div>
 
   <!-- 2. Actividad -->
-  <h2 class="section-title"><span class="n">02</span> Actividad del mes</h2>
-  <div class="panel">
+  <h2 class="section-title" onclick="toggleSection(this)"><span class="n">02</span> Actividad del mes <span class="chev">▾</span></h2>
+  <div class="panel collapsible">
     <div class="grid3">
       <div class="field">
         <label>Horas de vuelo (perfil)</label>
@@ -314,8 +385,8 @@
   </div>
 
   <!-- 3. Dietas -->
-  <h2 class="section-title"><span class="n">03</span> Dietas del mes (art. 80–81, Anexo III)</h2>
-  <div class="panel">
+  <h2 class="section-title" onclick="toggleSection(this)"><span class="n">03</span> Dietas del mes (art. 80–81, Anexo III) <span class="chev">▾</span></h2>
+  <div class="panel collapsible">
     <table class="dietas-table">
       <thead>
         <tr><th>Tipo</th><th>Descripción</th><th>Bruto</th><th>Exento</th><th>Días / uds</th></tr>
@@ -416,6 +487,11 @@
       Complementos IT (garantías), retribución en especie (billetes, comida crew), ni la Seguridad Social e IRPF
       (deducciones). Por eso el total de aquí es el <b>bruto de conceptos calculables</b>, no el importe líquido
       de tu recibo oficial.
+    </div>
+    <div class="note" style="margin-top:10px;border-color:var(--cyan);background:rgba(94,224,208,.06);">
+      <b style="color:var(--cyan);">Pago a mes vencido.</b> Los conceptos variables mostrados aquí corresponden
+      a la actividad del mes de la programación que procesaste, pero se cobran realmente en la nómina del
+      <b>mes siguiente</b> (ver el "Período" arriba). La parte fija corresponde al propio mes de esa nómina.
     </div>
     <div class="note" style="margin-top:10px;">
       <b>Pendiente de revisar.</b> En la nómina real de mayo/2026 no aparece una línea separada de
@@ -730,7 +806,14 @@ function renderNominaReal(d){
   document.getElementById('nomTrabajador').textContent = 'Nivel '+d.nivelCod+' — '+(d.rol==='P1'?'Primer Piloto':'Segundo Piloto');
   document.getElementById('nomCategoria').textContent = (d.rol==='P1'?'Piloto 1':'Piloto 2')+' Nivel '+(d.nivelCod.match(/\d+/)||[''])[0];
   const now = new Date();
-  document.getElementById('nomPeriodo').textContent = 'Período: '+document.getElementById('anio').value+' (simulado)';
+  const cal = window.ultimoCalendario;
+  if(cal){
+    const mesNomina = (cal.month+1)%12;
+    const anioNomina = cal.month===11 ? cal.year+1 : cal.year;
+    document.getElementById('nomPeriodo').textContent = `Nómina de: ${MESES[mesNomina]} ${anioNomina} (actividad de ${MESES[cal.month]})`;
+  } else {
+    document.getElementById('nomPeriodo').textContent = 'Período: '+document.getElementById('anio').value+' (simulado)';
+  }
 
   const rows = [
     ['8000','Salario Base','30,00','', d.sb],
@@ -856,12 +939,16 @@ function markAwayDays(startDate, endDate, locCode, map){
 }
 
 function procesarProgramacion(){
-  const text = document.getElementById('rosterInput').value;
+  const modo = document.getElementById('modoEntrada').value;
+  const text = modo === 'manual' ? generarTextoDesdeManual() : document.getElementById('rosterInput').value;
   const cambiosText = document.getElementById('cambiosInput').value;
   let rows = parseRoster(text);
   const summaryEl = document.getElementById('parseSummary');
   if(rows.length === 0){
-    summaryEl.innerHTML = '<div class="note warn" style="margin-top:10px;"><b>No se han detectado filas válidas.</b> Comprueba que has pegado el bloque con las líneas de COD.SER / fechas / DEP / ARR.</div>';
+    const msg = modo === 'manual'
+      ? '<b>No hay filas en la lista.</b> Añade al menos una entrada con el formulario de arriba.'
+      : '<b>No se han detectado filas válidas.</b> Comprueba que has pegado el bloque con las líneas de COD.SER / fechas / DEP / ARR.';
+    summaryEl.innerHTML = '<div class="note warn" style="margin-top:10px;">'+msg+'</div>';
     return;
   }
 
@@ -1062,9 +1149,26 @@ function procesarProgramacion(){
   const cal = buildCalendarData(rows, text);
   renderCalendar(cal);
 
+  // Pago a mes vencido: los conceptos variables (horas, dietas, actividad extra...) de esta
+  // programación se cobran en la nómina del MES SIGUIENTE, no en la del propio mes de actividad.
+  let mesNominaTexto = '';
+  {
+    const mesActividad = cal.month, anioActividad = cal.year;
+    const mesNomina = (mesActividad+1)%12;
+    const anioNomina = mesActividad===11 ? anioActividad+1 : anioActividad;
+    mesNominaTexto = `<div class="note" style="margin-top:10px;border-color:var(--cyan);background:rgba(94,224,208,.06);">
+      <b style="color:var(--cyan);">Pago a mes vencido.</b> Esta programación es de <b>${MESES[mesActividad]} ${anioActividad}</b>.
+      Sus conceptos variables (horas de vuelo, actividad, nocturnidad, actividad extraordinaria, imaginarias,
+      reservas y dietas) se cobran en la <b>nómina de ${MESES[mesNomina]} ${anioNomina}</b>, no en la de
+      ${MESES[mesActividad]}. La parte fija (salario base, plus transporte, prima viaje, asistencia técnica)
+      sí corresponde al propio mes de la nómina que estés calculando, sin retraso.
+    </div>`;
+  }
+
   summaryEl.innerHTML = `
     <b style="color:var(--amber);">Programación procesada</b> — ${rows.length} filas detectadas${cambios.length?` (${cambios.length} de cambios)`:''}.
     <span style="color:var(--cyan);">Calendario generado en la pestaña "Calendario".</span>
+    ${mesNominaTexto}
     ${cambiosHtml}
     <table>
       <tr><th>Horas de vuelo</th><td>${fmt(horasVuelo)} h</td></tr>
@@ -1176,73 +1280,152 @@ function renderCalendar(cal){
 
 // ================= GENERADOR DE PDF PROPIO (sin librerías externas) =================
 const CHIP_COLORS = {
-  vuelo:      {bg:'#16332f', fg:'#5ee0d0'},
-  libre:      {bg:'#16202f', fg:'#7d90ac'},
-  sa:         {bg:'#101a26', fg:'#7d90ac'},
-  imaginaria: {bg:'#3a2c10', fg:'#ffb020'},
-  vacaciones: {bg:'#123324', fg:'#6bffb0'},
-  excedencia: {bg:'#2c1f3d', fg:'#c88cff'},
-  medico:     {bg:'#3a1414', fg:'#ff6b6b'},
-  formacion:  {bg:'#16332f', fg:'#5ee0d0'},
-  otro:       {bg:'#16202f', fg:'#7d90ac'},
+  vuelo:      {bg:'#153834', fg:'#7ceede', border:'#2a5a52'},
+  libre:      {bg:'#182335', fg:'#93a5c2', border:'#26374f'},
+  sa:         {bg:'#121b28', fg:'#7d90ac', border:'#1f2c3e'},
+  imaginaria: {bg:'#3d2e10', fg:'#ffc966', border:'#664c1c'},
+  vacaciones: {bg:'#123a29', fg:'#82ffc0', border:'#1e5e40'},
+  excedencia: {bg:'#2f2143', fg:'#d3a6ff', border:'#4a3468'},
+  medico:     {bg:'#3d1717', fg:'#ff8f8f', border:'#642626'},
+  formacion:  {bg:'#153834', fg:'#7ceede', border:'#2a5a52'},
+  otro:       {bg:'#182335', fg:'#93a5c2', border:'#26374f'},
 };
+const CHIP_LEGEND = [
+  ['vuelo','Vuelo'],['libre','Libre'],['sa','Sin actividad'],['imaginaria','Imaginaria'],
+  ['vacaciones','Vacaciones'],['excedencia','Excedencia'],['medico','Reconoc. médico'],['formacion','Formación/simulador'],
+];
+
+function roundRectPath(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
 
 function renderCalendarToCanvas(cal){
-  const cols=7, cellW=210, cellH=118, headerH=44, titleH=54, pad=14;
+  const SCALE = 2; // resolución para texto nítido
+  const cols=7, cellW=220, cellH=132, headerH=40, titleH=54, legendH=56, pad=20, footerH=26;
   const firstDow = (new Date(Date.UTC(cal.year, cal.month, 1)).getUTCDay()+6)%7;
   const rows = Math.ceil((cal.daysInMonth + firstDow)/7);
   const canvasW = pad*2 + cols*cellW;
-  const canvasH = pad*2 + titleH + headerH + rows*cellH;
+  const canvasH = pad*2 + titleH + headerH + rows*cellH + legendH + footerH;
 
   const canvas = document.createElement('canvas');
-  canvas.width = canvasW; canvas.height = canvasH;
+  canvas.width = canvasW*SCALE; canvas.height = canvasH*SCALE;
+  canvas.style.width = canvasW+'px';
   const ctx = canvas.getContext('2d');
+  ctx.scale(SCALE, SCALE);
+  ctx.textBaseline = 'alphabetic';
 
+  const FONT = 'system-ui,-apple-system,Segoe UI,sans-serif';
+  const MONO = "'JetBrains Mono',ui-monospace,Menlo,monospace";
+
+  // Fondo general
   ctx.fillStyle = '#060d1a';
   ctx.fillRect(0,0,canvasW,canvasH);
 
-  ctx.fillStyle = '#ffb020';
-  ctx.font = 'bold 26px sans-serif';
-  ctx.fillText(`${MESES[cal.month]} ${cal.year}`.toUpperCase(), pad, pad+32);
+  // Cabecera con banda
+  ctx.fillStyle = '#0c1626';
+  ctx.fillRect(0,0,canvasW,titleH+pad);
+  ctx.fillStyle = '#dfe8f5';
+  ctx.font = `700 30px ${FONT}`;
+  ctx.fillText(`Calendario · ${MESES[cal.month]} ${cal.year}`, pad, pad+40);
+  ctx.strokeStyle = '#1c2c47';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0,titleH+pad); ctx.lineTo(canvasW,titleH+pad); ctx.stroke();
 
+  // Cabecera de días de la semana
   const gridTop = pad+titleH;
-  ctx.font = '600 13px sans-serif';
-  ctx.fillStyle = '#7d90ac';
+  ctx.fillStyle = '#0e1a2c';
+  ctx.fillRect(0, gridTop, canvasW, headerH);
+  ctx.font = `700 12px ${FONT}`;
   DOW.forEach((d,i)=>{
-    ctx.fillText(d.toUpperCase(), pad+i*cellW+8, gridTop+22);
+    const isWeekend = i>=5;
+    ctx.fillStyle = isWeekend ? '#ffb020' : '#7d90ac';
+    const tw = ctx.measureText(d.toUpperCase()).width;
+    ctx.fillText(d.toUpperCase(), pad+i*cellW+(cellW-tw)/2, gridTop+25);
   });
 
+  // Rejilla de días
   const cellsTop = gridTop+headerH;
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const cx = pad+c*cellW, cy = cellsTop+r*cellH;
+      const isWeekend = c>=5;
+      ctx.fillStyle = isWeekend ? '#0a1420' : '#0c1626';
+      ctx.fillRect(cx+1, cy+1, cellW-2, cellH-2);
+    }
+  }
   for(let day=1; day<=cal.daysInMonth; day++){
     const idx = firstDow+day-1;
     const col = idx%7, row = Math.floor(idx/7);
     const cx = pad+col*cellW, cy = cellsTop+row*cellH;
+
     ctx.strokeStyle = '#1c2c47';
     ctx.lineWidth = 1;
-    ctx.strokeRect(cx+2, cy+2, cellW-4, cellH-4);
-    ctx.fillStyle = '#dfe8f5';
-    ctx.font = 'bold 15px monospace';
-    ctx.fillText(String(day), cx+10, cy+22);
+    ctx.strokeRect(cx+0.5, cy+0.5, cellW-1, cellH-1);
+
+    ctx.fillStyle = col>=5 ? '#ffb020' : '#dfe8f5';
+    ctx.font = `700 16px ${MONO}`;
+    ctx.fillText(String(day), cx+12, cy+24);
 
     const key = `${cal.year}-${String(cal.month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const events = cal.dayEvents[key]||[];
-    let ey = cy+38;
-    events.forEach(ev=>{
-      if(ey > cy+cellH-14) return; // no caben más chips en la celda
+    let ey = cy+36;
+    const maxChips = Math.floor((cellH-40)/22);
+    events.slice(0,maxChips).forEach(ev=>{
       const colors = CHIP_COLORS[ev.cls] || CHIP_COLORS.otro;
+      const chipW = cellW-20, chipH = 19;
       ctx.fillStyle = colors.bg;
-      const chipW = cellW-16;
-      ctx.fillRect(cx+8, ey, chipW, 16);
+      roundRectPath(ctx, cx+10, ey, chipW, chipH, 4);
+      ctx.fill();
+      ctx.strokeStyle = colors.border;
+      ctx.lineWidth = 1;
+      roundRectPath(ctx, cx+10, ey, chipW, chipH, 4);
+      ctx.stroke();
       ctx.fillStyle = colors.fg;
-      ctx.font = '10px monospace';
+      ctx.font = `600 10.5px ${MONO}`;
       let texto = ev.label;
-      while(ctx.measureText(texto).width > chipW-8 && texto.length>3){
+      while(ctx.measureText(texto).width > chipW-10 && texto.length>3){
         texto = texto.slice(0,-2)+'…';
       }
-      ctx.fillText(texto, cx+12, ey+12);
-      ey += 19;
+      ctx.fillText(texto, cx+16, ey+13.5);
+      ey += chipH+3;
     });
+    if(events.length > maxChips){
+      ctx.fillStyle = '#7d90ac';
+      ctx.font = `600 10px ${FONT}`;
+      ctx.fillText(`+${events.length-maxChips} más`, cx+12, cy+cellH-8);
+    }
   }
+
+  // Leyenda
+  const legendTop = cellsTop + rows*cellH + 16;
+  ctx.strokeStyle = '#1c2c47';
+  ctx.beginPath(); ctx.moveTo(pad,legendTop-8); ctx.lineTo(canvasW-pad,legendTop-8); ctx.stroke();
+  let lx = pad, ly = legendTop+10;
+  ctx.font = `600 11px ${FONT}`;
+  CHIP_LEGEND.forEach(([cls,label])=>{
+    const colors = CHIP_COLORS[cls];
+    const labelW = ctx.measureText(label).width;
+    const itemW = 16+6+labelW+22;
+    if(lx+itemW > canvasW-pad){ lx = pad; ly += 24; }
+    ctx.fillStyle = colors.bg;
+    roundRectPath(ctx, lx, ly-11, 14, 14, 3); ctx.fill();
+    ctx.strokeStyle = colors.border; roundRectPath(ctx, lx, ly-11, 14, 14, 3); ctx.stroke();
+    ctx.fillStyle = '#93a5c2';
+    ctx.fillText(label, lx+20, ly);
+    lx += itemW;
+  });
+
+  // Pie
+  ctx.fillStyle = '#4a5a72';
+  ctx.font = `10px ${FONT}`;
+  ctx.fillText('Generado con la Calculadora de Nómina AEA — V Convenio Colectivo de Pilotos', pad, canvasH-10);
+
   return canvas;
 }
 
@@ -1340,8 +1523,119 @@ document.getElementById('rol').addEventListener('change', ()=>{poblarNiveles(); 
 document.getElementById('anio').addEventListener('change', actualizarTarifasDietas);
 document.getElementById('incAdicional').addEventListener('input', actualizarTarifasDietas);
 
+// ================= PLEGADO DE SECCIONES =================
+function toggleSection(h2){
+  const panel = h2.nextElementSibling;
+  h2.classList.toggle('collapsed');
+  if(panel && panel.classList.contains('collapsible')) panel.classList.toggle('collapsed');
+}
+
+// ================= MODO DE ENTRADA MANUAL (IATA) =================
+let manualRows = [];
+const TIPOS_SIN_RUTA = new Set(['IM','SA','LI','LN','RM','OC','SR','VA','EX']);
+
+function cambiarModoEntrada(){
+  const modo = document.getElementById('modoEntrada').value;
+  document.getElementById('bloqueTexto').style.display = modo==='texto' ? 'block' : 'none';
+  document.getElementById('bloqueManual').style.display = modo==='manual' ? 'block' : 'none';
+}
+
+function actualizarCamposManual(){
+  const tipo = document.getElementById('manTipo').value;
+  const sinRuta = TIPOS_SIN_RUTA.has(tipo);
+  document.getElementById('manDepWrap').style.display = sinRuta ? 'none' : 'block';
+  document.getElementById('manArrWrap').style.display = sinRuta ? 'none' : 'block';
+  if(sinRuta){
+    document.getElementById('manDep').value = 'MAD';
+    document.getElementById('manArr').value = 'MAD';
+  }
+}
+
+function fechaDDMMYYYY(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function sumarDiasISO(iso, dias){
+  const [y,m,d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y,m-1,d));
+  dt.setUTCDate(dt.getUTCDate()+dias);
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-${String(dt.getUTCDate()).padStart(2,'0')}`;
+}
+const TIPOS_DIA_COMPLETO = new Set(['VA','EX','LI','LN']);
+
+function anadirFilaManual(){
+  const tipo = document.getElementById('manTipo').value;
+  const fIni = document.getElementById('manFechaIni').value;
+  const hIni = document.getElementById('manHoraIni').value || '00:00';
+  let fFin = document.getElementById('manFechaFin').value || fIni;
+  let hFin = document.getElementById('manHoraFin').value || '00:00';
+  const dep = (document.getElementById('manDep').value || 'MAD').toUpperCase().slice(0,3);
+  const arr = (document.getElementById('manArr').value || 'MAD').toUpperCase().slice(0,3);
+
+  if(!fIni){ alert('Indica al menos la fecha de inicio.'); return; }
+
+  // Para bloques de día completo (vacaciones, excedencia, libres), si no se ha indicado un
+  // fin distinto, se asume automáticamente el día siguiente a las 00:00 (como en tu programación real).
+  if(TIPOS_DIA_COMPLETO.has(tipo) && fFin===fIni && hFin===hIni){
+    fFin = sumarDiasISO(fIni, 1);
+    hFin = '00:00';
+  }
+  if(fFin===fIni && hFin===hIni){
+    alert('La hora de fin no puede ser igual a la de inicio — indica una hora de fin distinta.');
+    return;
+  }
+
+  manualRows.push({tipo, fIni, hIni, fFin, hFin, dep, arr});
+  renderTablaManual();
+
+  // Sugerir la siguiente fecha automáticamente (comodidad para ir añadiendo varios días seguidos)
+  document.getElementById('manFechaIni').value = fFin;
+  document.getElementById('manFechaFin').value = fFin;
+}
+
+function eliminarFilaManual(idx){
+  manualRows.splice(idx,1);
+  renderTablaManual();
+}
+
+function limpiarManual(){
+  if(manualRows.length && !confirm('¿Vaciar toda la lista introducida a mano?')) return;
+  manualRows = [];
+  renderTablaManual();
+}
+
+function renderTablaManual(){
+  const body = document.getElementById('manualTablaBody');
+  body.innerHTML = manualRows.map((r,i)=>`
+    <tr>
+      <td><b>${r.tipo}</b></td>
+      <td>${fechaDDMMYYYY(r.fIni)} ${r.hIni}</td>
+      <td>${fechaDDMMYYYY(r.fFin)} ${r.hFin}</td>
+      <td>${TIPOS_SIN_RUTA.has(r.tipo) ? '—' : r.dep+'→'+r.arr}</td>
+      <td><button class="btn-secondary" style="width:auto;padding:3px 8px;font-size:11px;margin:0;" onclick="eliminarFilaManual(${i})">✕</button></td>
+    </tr>`).join('') || '<tr><td colspan="5" style="color:var(--dim);">Sin filas añadidas todavía</td></tr>';
+}
+
+// Convierte las filas manuales al mismo formato de texto que entiende el parser de programación,
+// para reutilizar exactamente la misma lógica de cálculo ya probada.
+function generarTextoDesdeManual(){
+  return manualRows.map(r=>
+    `${r.tipo} ${fechaDDMMYYYY(r.fIni)} ${r.hIni} ${fechaDDMMYYYY(r.fFin)} ${r.hFin} ${r.dep} ${r.arr}`
+  ).join('\n');
+}
+
 poblarNiveles();
 poblarDietas();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js')
+      .then(()=>console.log('Service Worker registrado — la app ya puede funcionar offline.'))
+      .catch(err=>console.warn('No se pudo registrar el Service Worker:', err));
+  });
+}
 </script>
 </body>
 </html>
