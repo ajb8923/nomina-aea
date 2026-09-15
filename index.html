@@ -113,6 +113,7 @@
   .brk-row .v{font-family:'JetBrains Mono',monospace;font-weight:600;}
   .brk-row.zero .v{color:var(--dim);}
   .brk-row.pos .v{color:var(--green);}
+  .brk-row.neg .v{color:var(--red);}
 
   .note{
     margin-top:22px;padding:12px 14px;background:rgba(255,176,32,.06);
@@ -379,8 +380,12 @@
         </select>
       </div>
       <div class="field">
-        <label>Días de vacaciones/excedencia este mes (art. 63)</label>
+        <label>Días de vacaciones/excedencia este mes (art. 63 — prorratea horas 1/2)</label>
         <input type="number" id="diasNoTrabajados" value="0" step="1" min="0" max="30">
+      </div>
+      <div class="field">
+        <label>...de los cuales, días de excedencia (se descuentan de la parte fija)</label>
+        <input type="number" id="diasExcedencia" value="0" step="1" min="0" max="30">
       </div>
       <div class="field">
         <label>Reducción de jornada (%, si aplica — STS 449/2026)</label>
@@ -390,6 +395,10 @@
     <div class="field" style="margin-top:2px;">
       <label>Prima por objetivos del año (€, solo se abona en nómina de mayo — art. 77)</label>
       <input type="number" id="primaObjetivos" value="0" step="1">
+    </div>
+    <div class="field" style="margin-top:2px;">
+      <label>IRPF estimado (%, manual — consulta tu tipo real en nóminas anteriores)</label>
+      <input type="number" id="irpfPct" value="0" step="0.5" min="0" max="47">
     </div>
   </div>
 
@@ -410,6 +419,10 @@
     <div class="total-row">
       <div class="label">Total bruto estimado</div>
       <div class="value" id="totalValue">0 <small>€</small></div>
+    </div>
+    <div class="total-row" id="netoRow" style="display:none;">
+      <div class="label">Neto estimado (tras IRPF)</div>
+      <div class="value" id="netoValue" style="color:var(--green);">0 <small>€</small></div>
     </div>
     <div class="breakdown" id="breakdown"></div>
   </div>
@@ -630,14 +643,16 @@ const PERFILES_787 = {
 "TFNMAD":hm(3,7),"TLVMAD":hm(5,39),"UIOGYE":hm(1,14),"VVIMAD":hm(14,10),"ZRHMAD":hm(2,45),
 };
 
-// Clasificación aeropuertos para dietas (simplificada)
+// Clasificación aeropuertos para dietas
 const ES_AIRPORTS = new Set(["MAD","BCN","LPA","PMI","TFN","AGP","VLC","SVQ","SCQ","BIO","ALC","IBZ","MAH","VGO","OVD","SDR","LEI","FUE","ACE"]);
-const EU_AIRPORTS = new Set(["AMS","ATH","BRU","FCO","HAM","IST","LGW","MUC","MXP","ORY","ZRH","TLV"]);
+const EU_AIRPORTS = new Set(["AMS","ATH","BRU","FCO","HAM","LGW","MUC","MXP","ORY","ZRH"]);
+const CORTO_INT_AIRPORTS = new Set(["IST","TLV"]); // "corto internacional" especial → DLT
 const BASE = "MAD";
-function tipoAirport(code){
-  if(ES_AIRPORTS.has(code)) return "nacional";
-  if(EU_AIRPORTS.has(code)) return "internacional";
-  return "larga";
+function tipoAirportCorto(code){
+  if(ES_AIRPORTS.has(code)) return "DNC";
+  if(CORTO_INT_AIRPORTS.has(code)) return "DLT";
+  if(EU_AIRPORTS.has(code)) return "DIC";
+  return "DLT"; // fuera de Europa en un viaje de ida/vuelta el mismo día: caso raro, se trata como corto internacional
 }
 
 // ================= HELPERS TABLA/DIETAS UI =================
@@ -676,7 +691,7 @@ function poblarDietas(){
     tr.innerHTML = `<td><b>${d[0]}</b></td><td>${d[1]}</td>
       <td class="rate" id="rate_${i}"></td>
       <td class="rate" id="exento_${i}"></td>
-      <td><input type="number" min="0" step="1" value="0" id="dieta_${i}"></td>`;
+      <td><input type="number" min="0" step="0.5" value="0" id="dieta_${i}"></td>`;
     body.appendChild(tr);
   });
   actualizarTarifasDietas();
@@ -705,10 +720,9 @@ function calcular(){
   const f = factorAnio();
 
   const [,,salarioBase,primaViaje,plusTransp,asistTec,hVuelo1,hVuelo2,pActLab,pImaginaria,hNocturna,pReserva] = row;
-  const sb = salarioBase*f, pv = primaViaje*f, pt = plusTransp*f, at = asistTec*f;
   const rHv1 = hVuelo1*f, rHv2 = hVuelo2*f, rPact = pActLab*f, rPimag = pImaginaria*f, rHnoc = hNocturna*f, rPres = pReserva*f;
 
-  const antiguedad = parseFloat(document.getElementById('antiguedad').value)||0;
+  const antiguedadBase = parseFloat(document.getElementById('antiguedad').value)||0;
   const horasVuelo = parseFloat(document.getElementById('horasVuelo').value)||0;
   const horasActividad = parseFloat(document.getElementById('horasActividad').value)||0;
   const horasNocturnas = parseFloat(document.getElementById('horasNocturnas').value)||0;
@@ -719,7 +733,16 @@ function calcular(){
   const esPagaExtra = document.getElementById('paga').value === 'si';
   const esComandante = document.getElementById('comandante').checked;
   const diasNoTrabajados = Math.min(30, Math.max(0, parseFloat(document.getElementById('diasNoTrabajados').value)||0));
+  const diasExcedencia = Math.min(30, Math.max(0, parseFloat(document.getElementById('diasExcedencia').value)||0));
   const reduccionJornadaPct = Math.min(75, Math.max(0, parseFloat(document.getElementById('reduccionJornada').value)||0));
+
+  // Vacaciones son días PAGADOS (solo prorratean horas 1/2 y actividad, art. 63) — la parte fija
+  // se cobra íntegra. Excedencia (p. ej. guarda legal) NO se paga: además de prorratear los
+  // umbrales, hay que descontar la parte fija en proporción a esos días (1/30 por día).
+  const proporcionFija = (30 - diasExcedencia) / 30;
+  const sb = salarioBase*f*proporcionFija, pv = primaViaje*f*proporcionFija,
+        pt = plusTransp*f*proporcionFija, at = asistTec*f*proporcionFija,
+        antiguedad = antiguedadBase*proporcionFija;
 
   // Art. 63: por cada día natural de vacaciones/excedencia con reserva, se prorratea (1/30)
   // el mínimo de horas de vuelo garantizadas (55h) y el máximo de actividad mensual (160h).
@@ -751,7 +774,7 @@ function calcular(){
   });
   const dietasSujeto = dietasTotal - dietasExento;
 
-  const primaResp = (esComandante && rol==='P1') ? t.comandante*f : 0;
+  const primaResp = (esComandante && rol==='P1') ? t.comandante*f*proporcionFija : 0;
   const gratifExtra = esPagaExtra ? (sb+pv+antiguedad) : 0;
   const objetivos = primaObjetivos;
   // Art. 59: cada imaginaria devenga 3h de vuelo "fuera de mínimos" al nivel correspondiente,
@@ -767,11 +790,26 @@ function calcular(){
 
   document.getElementById('totalValue').innerHTML = fmt(total) + ' <small>€ brutos</small>';
 
+  // Estimación de neto: la base sujeta a IRPF excluye la parte exenta de las dietas
+  // (la parte sujeta de las dietas sí tributa). No se descuenta la cotización a la
+  // Seguridad Social del trabajador, que es un concepto aparte no calculado aquí.
+  const irpfPct = parseFloat(document.getElementById('irpfPct').value)||0;
+  const baseSujetaIRPF = Math.max(total - dietasExento, 0);
+  const irpfEstimado = baseSujetaIRPF * irpfPct/100;
+  const netoEstimado = total - irpfEstimado;
+  const netoRow = document.getElementById('netoRow');
+  if(irpfPct > 0){
+    netoRow.style.display = 'flex';
+    document.getElementById('netoValue').innerHTML = fmt(netoEstimado) + ' <small>€</small>';
+  } else {
+    netoRow.style.display = 'none';
+  }
+
   const items = [
-    ["Salario base","(×14, tabla "+document.getElementById('anio').value+")", sb],
-    ["Prima razón viaje","(×14)", pv],
-    ["Plus de transporte","(×12)", pt],
-    ["Asistencia técnica","(×12)", at],
+    ["Salario base","(×14, tabla "+document.getElementById('anio').value+")"+(diasExcedencia>0?" · descontado por excedencia":""), sb],
+    ["Prima razón viaje","(×14)"+(diasExcedencia>0?" · descontado por excedencia":""), pv],
+    ["Plus de transporte","(×12)"+(diasExcedencia>0?" · descontado por excedencia":""), pt],
+    ["Asistencia técnica","(×12)"+(diasExcedencia>0?" · descontado por excedencia":""), at],
     ["Antigüedad ad personam","", antiguedad],
     ["Horas 1 ("+fmt(umbral55)+"–"+fmt(umbral75)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), horas1.toFixed(1)+" h × "+fmt(rHv1)+" €", payHoras1],
     ["Horas 2 (>"+fmt(umbral75)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), horas2.toFixed(1)+" h × "+fmt(rHv2)+" €", payHoras2],
@@ -786,12 +824,15 @@ function calcular(){
     ["Paga extra (art. 70)", esPagaExtra?"junio/diciembre":"—", gratifExtra],
     ["Prima por objetivos (art. 77)", "solo mayo", objetivos],
   ];
+  if(irpfPct > 0){
+    items.push(["IRPF estimado","−"+irpfPct+"% sobre "+fmt(baseSujetaIRPF)+" € (bruto menos dietas exentas)", -irpfEstimado]);
+  }
 
   const bd = document.getElementById('breakdown');
   bd.innerHTML = items.map(([k,sub,v])=>`
-    <div class="brk-row ${v===0?'zero':'pos'}">
+    <div class="brk-row ${v===0?'zero':(v<0?'neg':'pos')}">
       <div class="k">${k}${sub?`<small>${sub}</small>`:''}</div>
-      <div class="v">${fmt(v)} €</div>
+      <div class="v">${v<0?'−':''}${fmt(Math.abs(v))} €</div>
     </div>`).join('');
 
   document.getElementById('resultPanel').style.display = 'block';
@@ -935,16 +976,65 @@ function nightOverlapHours(start, end){
   return total;
 }
 
-function markAwayDays(startDate, endDate, locCode, map){
-  const rank = {nacional:1, internacional:2, larga:3};
-  let d = new Date(Date.UTC(startDate.getUTCFullYear(),startDate.getUTCMonth(),startDate.getUTCDate()));
-  const endD = new Date(Date.UTC(endDate.getUTCFullYear(),endDate.getUTCMonth(),endDate.getUTCDate()));
-  const tipo = tipoAirport(locCode);
-  while(d <= endD){
-    const key = d.toISOString().slice(0,10);
-    if(!map[key] || rank[tipo] > rank[map[key]]) map[key] = tipo;
-    d = new Date(d.getTime()+86400000);
+// ================= MOTOR DE DIETAS (secuencias por viaje) =================
+// Reglas dadas por el usuario, tabla "INFO DIETAS":
+//   Corto (ida y vuelta el mismo día): nacional→DNC, Europa→DIC, IST/TLV→DLT
+//   Viaje con pernocta, salida de MAD "nocturna" (activa art.76, >=4h en 21:00-08:00 UTC):
+//     día1=DLT2 (mitad de DLT), días intermedios=DLP, último día=DLT
+//   Viaje con pernocta, salida de MAD "medio día" (no activa art.76):
+//     día1=DLP, días intermedios=DLP, último día=DLC
+//   Curso/Simulador/Reconocimiento médico (OC/SR/RM): siempre 1× DNC
+function calcularDietasPorViaje(rows){
+  const dietaTotales = {}; // código -> nº de unidades (DLT2 cuenta como 0.5 de DLT)
+  function add(codigo, cantidad){ dietaTotales[codigo] = (dietaTotales[codigo]||0) + cantidad; }
+
+  const vuelos = rows.filter(r=>r.codSer==='CO'||r.codSer==='CR').sort((a,b)=>a.fini-b.fini);
+  let i = 0;
+  while(i < vuelos.length){
+    const r = vuelos[i];
+    if(r.dep===BASE && r.arr!==BASE){
+      let j = i+1, vuelta = null;
+      while(j < vuelos.length){
+        if(vuelos[j].dep===r.arr && vuelos[j].arr===BASE){ vuelta = vuelos[j]; break; }
+        if(vuelos[j].dep===BASE) break;
+        j++;
+      }
+      if(vuelta){
+        const diaIni = new Date(Date.UTC(r.fini.getUTCFullYear(),r.fini.getUTCMonth(),r.fini.getUTCDate()));
+        const diaFin = new Date(Date.UTC(vuelta.ffin.getUTCFullYear(),vuelta.ffin.getUTCMonth(),vuelta.ffin.getUTCDate()));
+        const nDias = Math.round((diaFin-diaIni)/86400000) + 1;
+
+        if(nDias <= 1){
+          // Ida y vuelta el mismo día: "Corto"
+          add(tipoAirportCorto(r.arr), 1);
+        } else {
+          const esNocturno = nightOverlapHours(r.fini, r.ffin) >= 4;
+          if(esNocturno){
+            add('DLT', 0.5); // DLT2 = mitad de DLT
+            for(let d=1; d<nDias-1; d++) add('DLP', 1);
+            add('DLT', 1);
+          } else {
+            add('DLP', 1);
+            for(let d=1; d<nDias-1; d++) add('DLP', 1);
+            add('DLC', 1);
+          }
+        }
+      } else {
+        // Vuelo de ida sin vuelta localizada en la programación: se trata como corto al destino
+        add(tipoAirportCorto(r.arr), 1);
+      }
+      i = vuelta ? j+1 : i+1;
+    } else {
+      i++;
+    }
   }
+
+  // Curso / Simulador / Reconocimiento médico: siempre 1 dieta DNC
+  rows.forEach(r=>{
+    if(r.codSer==='OC' || r.codSer==='SR' || r.codSer==='RM') add('DNC', 1);
+  });
+
+  return dietaTotales;
 }
 
 function procesarProgramacion(){
@@ -969,31 +1059,20 @@ function procesarProgramacion(){
   const {merged, affectedDates} = mergeCambios(rows, cambios);
   rows = merged;
 
-  let horasVuelo=0, horasActividad=0, horasNocturnas=0, imaginarias=0, diasNoTrabajados=0, horasActExtra=0;
+  let horasVuelo=0, horasActividad=0, horasNocturnas=0, imaginarias=0, diasNoTrabajados=0, diasExcedencia=0, horasActExtra=0;
   const vuelosExtraordinarios = [];
-  const awayMap = {};
-  let currentLoc = BASE;
-  let prevEnd = null;
   const rutasNoEncontradas = new Set();
 
   for(const r of rows){
-    // Rellenar huecos entre filas: si estábamos fuera de MAD, esos días también cuentan como fuera de base
-    if(prevEnd && r.fini > prevEnd && currentLoc !== BASE){
-      const gapEnd = new Date(r.fini.getTime()-1000);
-      markAwayDays(prevEnd, gapEnd, currentLoc, awayMap);
-    }
-
     if(r.codSer==='VA' || r.codSer==='EX'){
       // Art. 63: cada día natural de vacaciones/excedencia con reserva prorratea (1/30) los
-      // umbrales de 55h, 75h y 160h.
+      // umbrales de 55h, 75h y 160h. Además, la excedencia (a diferencia de las vacaciones,
+      // que son días pagados) también descuenta la parte fija de la retribución.
       diasNoTrabajados += (r.ffin - r.fini)/86400000;
-      currentLoc = r.arr || BASE;
-      prevEnd = r.ffin;
+      if(r.codSer==='EX') diasExcedencia += (r.ffin - r.fini)/86400000;
       continue;
     }
     if(r.codSer==='LI' || r.codSer==='LN' || r.codSer==='SA'){
-      currentLoc = r.arr || BASE;
-      prevEnd = r.ffin;
       continue;
     }
     if(r.codSer==='IM'){
@@ -1001,8 +1080,6 @@ function procesarProgramacion(){
       // Art. 59: la imaginaria devenga, dentro de mínimos, 12h de actividad si es en el
       // domicilio del tripulante (asumido por defecto) o 24h en cualquier otro caso.
       horasActividad += 12;
-      currentLoc = r.arr || BASE;
-      prevEnd = r.ffin;
       continue;
     }
 
@@ -1030,13 +1107,7 @@ function procesarProgramacion(){
         rutasNoEncontradas.add(r.dep+'-'+r.arr);
       }
       horasVuelo += perfil;
-      if(r.dep!==BASE || r.arr!==BASE){
-        const loc = r.arr!==BASE ? r.arr : r.dep;
-        markAwayDays(r.fini, r.ffin, loc, awayMap);
-      }
     }
-    currentLoc = r.arr || BASE;
-    prevEnd = r.ffin;
   }
 
   // Actividad extraordinaria: se evalúa por VIAJE completo (ida+vuelta), no por vuelo suelto.
@@ -1075,51 +1146,14 @@ function procesarProgramacion(){
     }
   }
 
-  // Convertir rachas de días fuera en dietas — razonando cada día según Anexo III
-  const dias = Object.keys(awayMap).sort();
-  const dietaCounts = {0:0,1:0,3:0,4:0,8:0,9:0}; // indices DNC,DNP,DIC,DIP,DLC,DLP
-  const tipoIdx = {nacional:{contacto:0,pernocta:1}, internacional:{contacto:3,pernocta:4}, larga:{contacto:8,pernocta:9}};
-  const tipoLabel = {nacional:'Nacional', internacional:'Internacional', larga:'Larga distancia'};
-  const reasoningLog = [];
-  let streak = [];
-  function flushStreak(){
-    if(streak.length===0) return;
-    const worst = streak.reduce((acc,d)=>{
-      const rank={nacional:1,internacional:2,larga:3};
-      return rank[awayMap[d]]>rank[acc]?awayMap[d]:acc;
-    }, 'nacional');
-    if(streak.length===1){
-      dietaCounts[tipoIdx[worst].contacto]++;
-      reasoningLog.push({
-        date: streak[0], codigo: tipoIdx[worst].contacto===0?'DNC':tipoIdx[worst].contacto===3?'DIC':'DLC',
-        motivo: `${tipoLabel[worst]}, sin pernocta. Ida y vuelta el mismo día natural, no hay disponibilidad de hotel entre 23:00–07:00 fuera de base — Anexo III, criterio "contacto" (no se cumplen las condiciones de pernocta del art. 81).`
-      });
-    } else {
-      for(let i=0;i<streak.length-1;i++){
-        const codigo = tipoIdx[worst].pernocta===1?'DNP':tipoIdx[worst].pernocta===4?'DIP':'DLP';
-        reasoningLog.push({
-          date: streak[i], codigo,
-          motivo: `${tipoLabel[worst]}, pernocta. Tras finalizar la actividad de este día el tripulante permanece fuera de base con hotel disponible entre 23:00–07:00 (o llegada a base ≥05:00 al día siguiente) — Anexo III: "la pernocta se aplicará al primer día".`
-        });
-      }
-      const codigoC = tipoIdx[worst].contacto===0?'DNC':tipoIdx[worst].contacto===3?'DIC':'DLC';
-      reasoningLog.push({
-        date: streak[streak.length-1], codigo: codigoC,
-        motivo: `${tipoLabel[worst]}, contacto. Último día del viaje: hay regreso a base ese mismo día, por lo que no se genera una nueva pernocta — se abona la dieta de contacto correspondiente al día de llegada.`
-      });
-      dietaCounts[tipoIdx[worst].pernocta] += streak.length-1;
-      dietaCounts[tipoIdx[worst].contacto] += 1;
-    }
-    streak = [];
-  }
-  let lastDate = null;
-  dias.forEach(d=>{
-    const dt = new Date(d+'T00:00:00Z');
-    if(lastDate && (dt-lastDate)/86400000 > 1){ flushStreak(); }
-    streak.push(d);
-    lastDate = dt;
+  // Dietas: motor de secuencias por viaje (ver calcularDietasPorViaje)
+  const dietaResultado = calcularDietasPorViaje(rows);
+  const CODIGO_A_INDICE = {DNC:0, DNP:1, DIC:3, DLC:8, DLP:9, DLT:10};
+  const dietaCounts = {};
+  Object.keys(dietaResultado).forEach(codigo=>{
+    const idx = CODIGO_A_INDICE[codigo];
+    if(idx!==undefined) dietaCounts[idx] = dietaResultado[codigo];
   });
-  flushStreak();
 
   // Rellenar campos del formulario
   document.getElementById('horasVuelo').value = horasVuelo.toFixed(1);
@@ -1127,6 +1161,7 @@ function procesarProgramacion(){
   document.getElementById('horasNocturnas').value = horasNocturnas.toFixed(1);
   document.getElementById('numImaginarias').value = imaginarias;
   document.getElementById('diasNoTrabajados').value = Math.round(diasNoTrabajados);
+  document.getElementById('diasExcedencia').value = Math.round(diasExcedencia);
   document.getElementById('horasActExtra').value = horasActExtra.toFixed(1);
   Object.keys(dietaCounts).forEach(idx=>{
     const el = document.getElementById('dieta_'+idx);
@@ -1134,15 +1169,10 @@ function procesarProgramacion(){
   });
 
   // Resumen visual
-  const labelsIdx = {0:'DNC',1:'DNP',3:'DIC',4:'DIP',8:'DLC',9:'DLP'};
+  const labelsIdx = {0:'DNC',1:'DNP',3:'DIC',8:'DLC',9:'DLP',10:'DLT'};
   let dietaRowsHtml = Object.keys(dietaCounts).filter(i=>dietaCounts[i]>0)
     .map(i=>`<tr><td>${labelsIdx[i]}</td><td>${dietaCounts[i]}</td></tr>`).join('');
-  if(!dietaRowsHtml) dietaRowsHtml = '<tr><td colspan="2">Sin días fuera de base detectados</td></tr>';
-
-  let reasoningHtml = reasoningLog.sort((a,b)=>a.date.localeCompare(b.date)).map(r=>
-    `<tr><td>${r.date}</td><td><b>${r.codigo}</b></td><td style="font-size:11px;color:var(--dim);">${r.motivo}</td></tr>`
-  ).join('');
-  if(!reasoningHtml) reasoningHtml = '<tr><td colspan="3">Sin días fuera de base este mes</td></tr>';
+  if(!dietaRowsHtml) dietaRowsHtml = '<tr><td colspan="2">Sin dietas detectadas</td></tr>';
 
   let cambiosHtml = '';
   if(affectedDates.length>0){
@@ -1193,11 +1223,6 @@ function procesarProgramacion(){
     <table>
       <tr><th>Dieta</th><th>Días</th></tr>
       ${dietaRowsHtml}
-    </table>
-    <div style="margin-top:12px;font-weight:700;color:var(--amber);font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Razonamiento día a día (Anexo III)</div>
-    <table>
-      <tr><th>Fecha</th><th>Dieta</th><th>Motivo</th></tr>
-      ${reasoningHtml}
     </table>
     ${warnRutas}
   `;
