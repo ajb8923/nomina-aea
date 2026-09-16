@@ -11,9 +11,15 @@ const URLS_TO_CACHE = [
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(URLS_TO_CACHE))
-      .catch(err => console.warn('No se pudieron cachear todos los recursos:', err))
+    caches.open(CACHE_NAME).then(cache => {
+      // Se cachea cada archivo por separado: si uno falla (p.ej. un icono con
+      // ruta incorrecta), los demás se guardan igualmente en vez de perderse todos.
+      return Promise.allSettled(
+        URLS_TO_CACHE.map(url =>
+          cache.add(url).catch(err => console.warn('No se pudo cachear', url, err))
+        )
+      );
+    })
   );
   self.skipWaiting();
 });

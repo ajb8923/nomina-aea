@@ -210,8 +210,10 @@
       <h1>Calculadora de Nómina</h1>
       <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos</span>
     </div>
-    <div class="clock">✈ TTP <br><small>uso personal / offline</small></div>
+    <div class="clock">✈ TTP <br><small id="swStatus">Comprobando modo offline…</small></div>
   </header>
+
+  <div class="note" id="swBanner" style="display:none;margin-bottom:14px;"></div>
 
   <div class="tabs">
     <button class="tab-btn active" id="tabBtnCalc" onclick="switchTab('calc')">Calculadora</button>
@@ -1788,11 +1790,40 @@ function generarTextoDesdeManual(){
 poblarNiveles();
 poblarDietas();
 
-if('serviceWorker' in navigator){
+function mostrarEstadoSW(texto, ok){
+  const el = document.getElementById('swStatus');
+  const banner = document.getElementById('swBanner');
+  if(el){ el.textContent = texto; el.style.color = ok ? 'var(--green)' : 'var(--red)'; }
+  if(banner && !ok){
+    banner.style.display = 'block';
+    banner.innerHTML = `<b style="color:var(--amber);">Modo offline no disponible.</b> ${texto} Vuelve a cargar esta página con conexión — a partir de la próxima vez que la abras debería funcionar sin wifi.`;
+  }
+}
+
+if(!('serviceWorker' in navigator)){
+  mostrarEstadoSW('Este navegador no soporta modo offline (Service Worker).', false);
+} else if(!navigator.onLine){
+  // Si ya estamos offline al cargar, comprobamos si ya había una caché lista de antes.
+  caches.has && caches.has('nomina-aea-cache-v1').then(existe=>{
+    mostrarEstadoSW(existe ? 'Cargado desde caché offline ✓' : 'Sin conexión y sin caché previa — abre la app una vez con wifi.', existe);
+  }).catch(()=> mostrarEstadoSW('Sin conexión — no se pudo comprobar la caché.', false));
+} else {
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js')
-      .then(()=>console.log('Service Worker registrado — la app ya puede funcionar offline.'))
-      .catch(err=>console.warn('No se pudo registrar el Service Worker:', err));
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      // Esperamos a que el Service Worker esté realmente activo y haya podido cachear los archivos.
+      return navigator.serviceWorker.ready.then(()=>{
+        return caches.open('nomina-aea-cache-v1').then(cache=>cache.keys());
+      });
+    }).then(keys=>{
+      if(keys && keys.length>0){
+        mostrarEstadoSW(`Modo offline activo ✓ (${keys.length} archivos en caché)`, true);
+      } else {
+        mostrarEstadoSW('Service Worker registrado, pero la caché está vacía todavía — recarga la página una vez más.', false);
+      }
+    }).catch(err=>{
+      console.warn('No se pudo registrar el Service Worker:', err);
+      mostrarEstadoSW('No se pudo activar el modo offline en este navegador ('+err.message+').', false);
+    });
   });
 }
 </script>
