@@ -31,7 +31,16 @@
     font-family:'Segoe UI',system-ui,-apple-system,sans-serif;}
   ::selection{background:var(--amber);color:#000;}
 
-  .wrap{max-width:960px;margin:0 auto;padding:18px 16px 80px;}
+  .wrap{max-width:960px;margin:0 auto;padding:18px 16px 90px;}
+
+  /* Barra de pestañas inferior, fija */
+  .bottom-tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;
+    background:var(--panel);border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom, 0px);}
+  .bottom-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:9px 0 10px;background:none;border:none;color:var(--dim);cursor:pointer;font-family:inherit;}
+  .bottom-tab.active{color:var(--amber);}
+  .bottom-tab span{font-size:10.5px;font-weight:700;}
 
   header{
     display:flex;align-items:center;justify-content:space-between;
@@ -64,6 +73,27 @@
   h2.section-title .chev{margin-left:auto;font-size:12px;color:var(--dim);transition:transform .15s ease;}
   h2.section-title.collapsed .chev{transform:rotate(-90deg);}
   .collapsible{overflow:hidden;max-height:4000px;transition:max-height .25s ease, opacity .2s ease;opacity:1;}
+
+  /* Toggle switch (Subir programación / Cambios) */
+  .toggle-row{display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:9px;cursor:pointer;margin-bottom:10px;}
+  .switch-track{width:38px;height:22px;border-radius:20px;background:#1c2c47;position:relative;flex-shrink:0;transition:background .15s ease;}
+  .switch-track.on{background:var(--amber);}
+  .switch-thumb{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#dfe8f5;transition:left .15s ease;}
+  .switch-track.on .switch-thumb{left:18px;background:#1a1200;}
+  .toggle-row .label-txt{font-size:13.5px;font-weight:600;}
+  .toggle-row .label-sub{font-size:11px;color:var(--dim);margin-left:auto;}
+  .toggle-panel{display:none;margin-bottom:14px;}
+  .toggle-panel.open{display:block;}
+
+  /* Selector de vista Día/Semana/Mes/Mapa */
+  .vista-switch{display:flex;gap:5px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;padding:4px;margin-bottom:14px;}
+  .vista-btn{flex:1;padding:9px 4px;border:none;border-radius:7px;background:transparent;
+    color:var(--dim);font-weight:700;font-size:12px;cursor:pointer;}
+  .vista-btn.active{background:var(--amber);color:#1a1200;}
+  .vista-content{display:none;}
+  .vista-content.active{display:block;}
   .collapsible.collapsed{max-height:0 !important;opacity:0;pointer-events:none;margin:0 !important;}
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;}
@@ -215,100 +245,171 @@
 
   <div class="note" id="swBanner" style="display:none;margin-bottom:14px;"></div>
 
-  <div class="tabs">
-    <button class="tab-btn active" id="tabBtnCalc" onclick="switchTab('calc')">Calculadora</button>
-    <button class="tab-btn" id="tabBtnCal" onclick="switchTab('cal')">Mes</button>
-    <button class="tab-btn" id="tabBtnSem" onclick="switchTab('sem')">Semana</button>
-    <button class="tab-btn" id="tabBtnMapa" onclick="switchTab('mapa')">Mapa</button>
-    <button class="tab-btn" id="tabBtnNom" onclick="switchTab('nom')">Nómina</button>
-  </div>
+  <div class="tab-panel active" id="tabProg">
+    <h2 class="section-title"><span class="n">📅</span> Programación</h2>
 
-  <div class="tab-panel active" id="tabCalc">
-
-  <!-- 0. Programación -->
-  <h2 class="section-title" onclick="toggleSection(this)"><span class="n">00</span> Programación mensual (opcional) <span class="chev">▾</span></h2>
-  <div class="panel collapsible">
-    <div class="field" id="historialSelector" style="display:none;"></div>
-    <div class="field" id="modoTextoWrap">
-      <div class="checkrow" style="cursor:default;">
-        <label style="margin:0;flex:1;">Modo de entrada</label>
-        <select id="modoEntrada" style="width:auto;" onchange="cambiarModoEntrada()">
-          <option value="pdf">Subir PDF "Programaciones publicadas" (AEA)</option>
-          <option value="texto">Pegar programación (texto, copia de respaldo)</option>
-          <option value="manual">Introducir a mano (IATA)</option>
-        </select>
-      </div>
+    <div class="toggle-row" onclick="toggleSwitchPanel('panelSubir', this)">
+      <span class="switch-track" id="switchSubir"><span class="switch-thumb"></span></span>
+      <span class="label-txt">Subir programación</span>
+      <span class="label-sub">PDF, texto o a mano</span>
     </div>
-    <div id="bloquePdf">
-      <div class="field">
-        <label>PDF de "Programaciones publicadas" descargado de AEA</label>
-        <input type="file" id="pdfInput" accept="application/pdf" onchange="cargarPdfProgramacion(event)">
-      </div>
-      <div id="pdfStatus" style="font-size:12px;color:var(--dim);margin-top:6px;"></div>
-    </div>
-    <div id="bloqueTexto" style="display:none;">
-      <div class="field">
-        <label>Pega aquí el texto de tu programación (formato PROGRAMACION DEL ... AL ...)</label>
-        <textarea id="rosterInput" placeholder="TRIPULANTE: ...&#10;PROGRAMACION DEL 01/07/2025 AL 31/07/2025&#10;...&#10;   LI             01/07/2025 00:00 02/07/2025 00:00 MAD  MAD&#10;   CO       CO    03/07/2025 13:25 03/07/2025 22:45 MAD  MIA&#10;..."></textarea>
-      </div>
-    </div>
-    <div id="bloqueManual" style="display:none;">
-      <div class="grid3">
-        <div class="field">
-          <label>Tipo</label>
-          <select id="manTipo" onchange="actualizarCamposManual()">
-            <option value="CO">Vuelo (CO)</option>
-            <option value="CR">Vuelo relevo (CR)</option>
-            <option value="IM">Imaginaria (IM)</option>
-            <option value="SA">Sin actividad (SA)</option>
-            <option value="LI">Libre (LI)</option>
-            <option value="LN">Libre negociable (LN)</option>
-            <option value="RM">Reconoc. médico (RM)</option>
-            <option value="OC">Curso online (OC)</option>
-            <option value="SR">Simulador (SR)</option>
-            <option value="VA">Vacaciones (VA)</option>
-            <option value="EX">Excedencia (EX)</option>
+    <div class="toggle-panel panel" id="panelSubir">
+      <div class="field" id="historialSelector" style="display:none;"></div>
+      <div class="field" id="modoTextoWrap">
+        <div class="checkrow" style="cursor:default;">
+          <label style="margin:0;flex:1;">Modo de entrada</label>
+          <select id="modoEntrada" style="width:auto;" onchange="cambiarModoEntrada()">
+            <option value="pdf">Subir PDF "Programaciones publicadas" (AEA)</option>
+            <option value="texto">Pegar programación (texto, copia de respaldo)</option>
+            <option value="manual">Introducir a mano (IATA)</option>
           </select>
         </div>
+      </div>
+      <div id="bloquePdf">
         <div class="field">
-          <label>Fecha inicio</label>
-          <input type="date" id="manFechaIni">
+          <label>PDF de "Programaciones publicadas" descargado de AEA</label>
+          <input type="file" id="pdfInput" accept="application/pdf" onchange="cargarPdfProgramacion(event)">
         </div>
+        <div id="pdfStatus" style="font-size:12px;color:var(--dim);margin-top:6px;"></div>
+      </div>
+      <div id="bloqueTexto" style="display:none;">
         <div class="field">
-          <label>Hora inicio (UTC)</label>
-          <input type="time" id="manHoraIni" value="00:00">
-        </div>
-        <div class="field">
-          <label>Fecha fin</label>
-          <input type="date" id="manFechaFin">
-        </div>
-        <div class="field">
-          <label>Hora fin (UTC)</label>
-          <input type="time" id="manHoraFin" value="00:00">
-        </div>
-        <div class="field" id="manDepWrap">
-          <label>Origen (IATA)</label>
-          <input type="text" id="manDep" value="MAD" maxlength="3" style="text-transform:uppercase;">
-        </div>
-        <div class="field" id="manArrWrap">
-          <label>Destino (IATA)</label>
-          <input type="text" id="manArr" value="MAD" maxlength="3" style="text-transform:uppercase;">
+          <label>Pega aquí el texto de tu programación (formato PROGRAMACION DEL ... AL ...)</label>
+          <textarea id="rosterInput" placeholder="TRIPULANTE: ...&#10;PROGRAMACION DEL 01/07/2025 AL 31/07/2025&#10;...&#10;   LI             01/07/2025 00:00 02/07/2025 00:00 MAD  MAD&#10;   CO       CO    03/07/2025 13:25 03/07/2025 22:45 MAD  MIA&#10;..."></textarea>
         </div>
       </div>
-      <button class="btn-secondary" onclick="anadirFilaManual()">+ Añadir a la lista</button>
-      <table class="dietas-table" style="margin-top:12px;">
-        <thead><tr><th>Tipo</th><th>Inicio</th><th>Fin</th><th>Ruta</th><th></th></tr></thead>
-        <tbody id="manualTablaBody"></tbody>
-      </table>
-      <button class="btn-secondary" style="margin-top:10px;" onclick="limpiarManual()">Vaciar lista</button>
+      <div id="bloqueManual" style="display:none;">
+        <div class="grid3">
+          <div class="field">
+            <label>Tipo</label>
+            <select id="manTipo" onchange="actualizarCamposManual()">
+              <option value="CO">Vuelo (CO)</option>
+              <option value="CR">Vuelo relevo (CR)</option>
+              <option value="IM">Imaginaria (IM)</option>
+              <option value="SA">Sin actividad (SA)</option>
+              <option value="LI">Libre (LI)</option>
+              <option value="LN">Libre negociable (LN)</option>
+              <option value="RM">Reconoc. médico (RM)</option>
+              <option value="OC">Curso online (OC)</option>
+              <option value="SR">Simulador (SR)</option>
+              <option value="VA">Vacaciones (VA)</option>
+              <option value="EX">Excedencia (EX)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Fecha inicio</label>
+            <input type="date" id="manFechaIni">
+          </div>
+          <div class="field">
+            <label>Hora inicio (UTC)</label>
+            <input type="time" id="manHoraIni" value="00:00">
+          </div>
+          <div class="field">
+            <label>Fecha fin</label>
+            <input type="date" id="manFechaFin">
+          </div>
+          <div class="field">
+            <label>Hora fin (UTC)</label>
+            <input type="time" id="manHoraFin" value="00:00">
+          </div>
+          <div class="field" id="manDepWrap">
+            <label>Origen (IATA)</label>
+            <input type="text" id="manDep" value="MAD" maxlength="3" style="text-transform:uppercase;">
+          </div>
+          <div class="field" id="manArrWrap">
+            <label>Destino (IATA)</label>
+            <input type="text" id="manArr" value="MAD" maxlength="3" style="text-transform:uppercase;">
+          </div>
+        </div>
+        <button class="btn-secondary" onclick="anadirFilaManual()">+ Añadir a la lista</button>
+        <table class="dietas-table" style="margin-top:12px;">
+          <thead><tr><th>Tipo</th><th>Inicio</th><th>Fin</th><th>Ruta</th><th></th></tr></thead>
+          <tbody id="manualTablaBody"></tbody>
+        </table>
+        <button class="btn-secondary" style="margin-top:10px;" onclick="limpiarManual()">Vaciar lista</button>
+      </div>
     </div>
-    <button class="btn-secondary" style="margin-top:14px;" onclick="procesarProgramacion()">Procesar programación y rellenar campos</button>
-    <div class="field" style="margin-top:16px;">
-      <label>Cambios (mensajes de última hora que modifican la programación — opcional)</label>
-      <textarea id="cambiosInput" style="min-height:90px;" placeholder="BONNY FVOR TOME NOTA:&#10;02/08/2026 CO MAD-COR 21:45 10:25 Z (MODIFICADO)&#10;04/08/2026 SA COR-COR 01:36 21:49 Z&#10;05/08/2026 CO COR-MAD 15:05 03:10 Z (MODIFICADO)&#10;FVOR CONF RECEP MSSG&#10;GRCS Y SLDS&#10;PROG"></textarea>
+
+    <div class="toggle-row" onclick="toggleSwitchPanel('panelCambios', this)">
+      <span class="switch-track" id="switchCambios"><span class="switch-thumb"></span></span>
+      <span class="label-txt">Cambios</span>
+      <span class="label-sub">Mensajes de última hora</span>
     </div>
+    <div class="toggle-panel panel" id="panelCambios">
+      <div class="field">
+        <label>Cambios (mensajes de última hora que modifican la programación)</label>
+        <textarea id="cambiosInput" style="min-height:90px;" placeholder="BONNY FVOR TOME NOTA:&#10;02/08/2026 CO MAD-COR 21:45 10:25 Z (MODIFICADO)&#10;04/08/2026 SA COR-COR 01:36 21:49 Z&#10;05/08/2026 CO COR-MAD 15:05 03:10 Z (MODIFICADO)&#10;FVOR CONF RECEP MSSG&#10;GRCS Y SLDS&#10;PROG"></textarea>
+      </div>
+    </div>
+
+    <button class="btn-calc" onclick="procesarProgramacion()">Procesar programación</button>
     <div class="parse-summary" id="parseSummary"></div>
-  </div>
+
+    <div class="vista-switch" style="margin-top:18px;">
+      <button class="vista-btn active" id="vistaBtnDia" onclick="switchVista('dia')">Día</button>
+      <button class="vista-btn" id="vistaBtnSem" onclick="switchVista('sem')">Semana</button>
+      <button class="vista-btn" id="vistaBtnMes" onclick="switchVista('mes')">Mes</button>
+      <button class="vista-btn" id="vistaBtnMapa" onclick="switchVista('mapa')">Mapa</button>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button class="btn-secondary" style="width:auto;flex:1;margin:0;padding:9px 10px;font-size:12px;" onclick="exportarPDF(event)">Exportar Calendario</button>
+    </div>
+
+    <div id="detalleDiaSlot"></div>
+
+    <div class="vista-content active" id="vistaDia">
+      <div class="panel" id="diaPanel">
+        <div style="color:var(--dim);font-size:13px;">Procesa una programación para ver los días aquí.</div>
+      </div>
+    </div>
+
+    <div class="vista-content" id="vistaSem">
+      <div class="panel" id="semanaPanel">
+        <div style="color:var(--dim);font-size:13px;">Procesa una programación para ver el itinerario aquí.</div>
+      </div>
+    </div>
+
+    <div class="vista-content" id="vistaMes">
+      <div class="panel">
+        <div class="cal-header">
+          <div class="cal-title" id="calTitle">—</div>
+        </div>
+        <div id="calStatsBar" style="display:none;gap:14px;margin:2px 0 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);"></div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-legend" id="calLegend"></div>
+      </div>
+    </div>
+
+    <div class="vista-content" id="vistaMapaC">
+      <div class="panel" id="mapaPanel">
+        <div style="color:var(--dim);font-size:13px;">Procesa una programación para ver tus destinos aquí.</div>
+      </div>
+      <div class="note" style="margin-top:14px;">
+        <b>Esquema, no mapa real.</b> Las posiciones se calculan a partir de la latitud/longitud aproximada de
+        cada aeropuerto, proyectadas de forma simplificada — no hay costas ni fronteras dibujadas.
+      </div>
+    </div>
+
+    <div id="pdfPreviewBox" style="display:none;margin-top:14px;">
+      <div class="note" style="border-color:var(--green);background:rgba(107,255,176,.06);margin-bottom:10px;">
+        <b style="color:var(--green);">Vista previa del calendario generado.</b> Si ves la imagen debajo, el
+        cálculo funciona correctamente. Pulsa el botón para intentar descargar el PDF — si tampoco hace nada
+        al tocarlo, es una limitación del navegador que estás usando (no del cálculo).
+      </div>
+      <img id="pdfPreviewFrame" style="width:100%;border:1px solid var(--line);border-radius:8px;background:#0c1626;display:block;">
+      <div style="margin-top:10px;">
+        <a id="pdfManualLinkWrap2" href="#" download style="display:inline-block;padding:10px 16px;background:var(--amber);color:#1a1200;border-radius:8px;font-weight:700;text-decoration:none;">Descargar el PDF (toca aquí)</a>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:16px;">
+      <b>Hora de firma.</b> Para vuelos que salen de Madrid se calcula como salida menos 1h30. Para los vuelos
+      de vuelta desde destino no se muestra firma (aún no hay una regla confirmada para esos casos).
+    </div>
+  </div><!-- /tabProg -->
+
+  <div class="tab-panel" id="tabCalc">
 
   <!-- 1. Perfil -->
   <h2 class="section-title" onclick="toggleSection(this)"><span class="n">01</span> Perfil retributivo <span class="chev">▾</span></h2>
@@ -451,64 +552,6 @@
 
   </div><!-- /tabCalc -->
 
-  <div class="tab-panel" id="tabCal">
-    <h2 class="section-title"><span class="n">📅</span> Calendario del mes</h2>
-    <div class="panel">
-      <div class="cal-header">
-        <div class="cal-title" id="calTitle">—</div>
-        <div style="text-align:right;">
-          <button class="btn-secondary" style="width:auto;margin:0;padding:9px 16px;" onclick="exportarPDF(event)">Exportar PDF</button>
-        </div>
-      </div>
-      <div id="calStatsBar" style="display:none;gap:14px;margin:2px 0 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);"></div>
-      <div class="cal-grid" id="calGrid"></div>
-      <div class="cal-legend" id="calLegend"></div>
-    </div>
-    <div id="pdfPreviewBox" style="display:none;margin-top:14px;">
-      <div class="note" style="border-color:var(--green);background:rgba(107,255,176,.06);margin-bottom:10px;">
-        <b style="color:var(--green);">Vista previa del calendario generado.</b> Si ves la imagen debajo, el
-        cálculo funciona correctamente. Pulsa el botón amarillo para intentar descargar el PDF — si tampoco
-        hace nada al tocarlo, es una limitación del navegador que estás usando (no del cálculo), y te
-        recomendamos abrir este archivo en Safari.
-      </div>
-      <img id="pdfPreviewFrame" style="width:100%;border:1px solid var(--line);border-radius:8px;background:#0c1626;display:block;">
-      <div style="margin-top:10px;">
-        <a id="pdfManualLinkWrap2" href="#" download style="display:inline-block;padding:10px 16px;background:var(--amber);color:#1a1200;border-radius:8px;font-weight:700;text-decoration:none;">Descargar el PDF (toca aquí)</a>
-      </div>
-    </div>
-    <div class="note" style="margin-top:16px;">
-      <b>Cómo generarlo.</b> Ve a la pestaña "Calculadora", pega tu programación en la sección 00 y pulsa
-      "Procesar programación" — el calendario de esta pestaña se rellena automáticamente con el mes detectado.
-      Pulsa "Exportar PDF" y se descargará el archivo directamente (revisa la carpeta de descargas de tu
-      navegador/app). El PDF se genera con código propio, sin ninguna librería externa ni conexión a
-      internet — debería funcionar igual en cualquier app o navegador.
-    </div>
-  </div><!-- /tabCal -->
-
-  <div class="tab-panel" id="tabSem">
-    <h2 class="section-title"><span class="n">📋</span> Vista Semana</h2>
-    <div class="panel" id="semanaPanel">
-      <div style="color:var(--dim);font-size:13px;">Procesa una programación en la pestaña "Calculadora" para ver el itinerario aquí.</div>
-    </div>
-    <div id="diaDetallePanel" style="display:none;margin-top:16px;"></div>
-    <div class="note" style="margin-top:16px;">
-      <b>Hora de firma.</b> Para vuelos que salen de Madrid se calcula como salida menos 1h30. Para los vuelos
-      de vuelta desde destino no se muestra firma (aún no hay una regla confirmada para esos casos).
-    </div>
-  </div><!-- /tabSem -->
-
-  <div class="tab-panel" id="tabMapa">
-    <h2 class="section-title"><span class="n">🗺️</span> Mapa de destinos</h2>
-    <div class="panel" id="mapaPanel">
-      <div style="color:var(--dim);font-size:13px;">Procesa una programación en la pestaña "Calculadora" para ver tus destinos aquí.</div>
-    </div>
-    <div class="note" style="margin-top:16px;">
-      <b>Esquema, no mapa real.</b> Las posiciones se calculan a partir de la latitud/longitud aproximada de
-      cada aeropuerto, proyectadas de forma simplificada — no hay costas ni fronteras dibujadas, es un
-      diagrama de rutas desde tu base, no un mapa geográfico con librerías externas.
-    </div>
-  </div><!-- /tabMapa -->
-
   <div class="tab-panel" id="tabNom">
     <h2 class="section-title"><span class="n">🧾</span> Nómina Real (formato AEA)</h2>
     <div class="panel" style="font-family:'JetBrains Mono',monospace;">
@@ -554,6 +597,21 @@
   </div><!-- /tabNom -->
 
   <footer>Generado a partir del V Convenio Colectivo de Pilotos AEA (texto consolidado, enero 2024) y tabla salarial 2026</footer>
+</div>
+
+<div class="bottom-tabs">
+  <button class="bottom-tab active" id="btmBtnProg" onclick="switchTab('prog')">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+    <span>Programación</span>
+  </button>
+  <button class="bottom-tab" id="btmBtnCalc" onclick="switchTab('calc')">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="12" x2="8" y2="12.01"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="16" y1="12" x2="16" y2="12.01"/><line x1="8" y1="16" x2="8" y2="16.01"/><line x1="12" y1="16" x2="12" y2="16.01"/><line x1="16" y1="16" x2="16" y2="16.01"/></svg>
+    <span>Calculadora</span>
+  </button>
+  <button class="bottom-tab" id="btmBtnNom" onclick="switchTab('nom')">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+    <span>Nómina</span>
+  </button>
 </div>
 
 <script>
@@ -1225,7 +1283,9 @@ function procesarProgramacion(){
   renderCalendar(cal);
   renderStatsBar(rows, cal, {horasVuelo, dietaCounts});
   renderSemana(rows, cal);
+  renderVistaDia(rows, cal);
   renderMapa(rows, cal);
+  cerrarDetalleDia();
   guardarHistorial(cal, {horasVuelo, horasActividad, horasNocturnas, imaginarias, horasActExtra, dietaCounts, rowsTexto: text});
   renderSelectorHistorial();
 
@@ -1270,16 +1330,32 @@ function procesarProgramacion(){
 
 // ================= TABS =================
 function switchTab(name){
+  document.getElementById('tabProg').classList.toggle('active', name==='prog');
   document.getElementById('tabCalc').classList.toggle('active', name==='calc');
-  document.getElementById('tabCal').classList.toggle('active', name==='cal');
-  document.getElementById('tabSem').classList.toggle('active', name==='sem');
-  document.getElementById('tabMapa').classList.toggle('active', name==='mapa');
   document.getElementById('tabNom').classList.toggle('active', name==='nom');
-  document.getElementById('tabBtnCalc').classList.toggle('active', name==='calc');
-  document.getElementById('tabBtnCal').classList.toggle('active', name==='cal');
-  document.getElementById('tabBtnSem').classList.toggle('active', name==='sem');
-  document.getElementById('tabBtnMapa').classList.toggle('active', name==='mapa');
-  document.getElementById('tabBtnNom').classList.toggle('active', name==='nom');
+  document.getElementById('btmBtnProg').classList.toggle('active', name==='prog');
+  document.getElementById('btmBtnCalc').classList.toggle('active', name==='calc');
+  document.getElementById('btmBtnNom').classList.toggle('active', name==='nom');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function toggleSwitchPanel(panelId, rowEl){
+  const panel = document.getElementById(panelId);
+  const track = rowEl.querySelector('.switch-track');
+  const abrir = !panel.classList.contains('open');
+  panel.classList.toggle('open', abrir);
+  track.classList.toggle('on', abrir);
+}
+
+function switchVista(name){
+  document.getElementById('vistaDia').classList.toggle('active', name==='dia');
+  document.getElementById('vistaSem').classList.toggle('active', name==='sem');
+  document.getElementById('vistaMes').classList.toggle('active', name==='mes');
+  document.getElementById('vistaMapaC').classList.toggle('active', name==='mapa');
+  document.getElementById('vistaBtnDia').classList.toggle('active', name==='dia');
+  document.getElementById('vistaBtnSem').classList.toggle('active', name==='sem');
+  document.getElementById('vistaBtnMes').classList.toggle('active', name==='mes');
+  document.getElementById('vistaBtnMapa').classList.toggle('active', name==='mapa');
 }
 
 // ================= CALENDARIO =================
@@ -1439,9 +1515,9 @@ function renderSemana(rows, cal){
 
 // ================= VISTA DÍA =================
 function mostrarDia(dateKey){
-  switchTab('sem');
+  switchTab('prog');
   const rows = window.ultimoRows || [];
-  const panel = document.getElementById('diaDetallePanel');
+  const panel = document.getElementById('detalleDiaSlot');
   const fecha = new Date(dateKey+'T00:00:00Z');
   const nombreDia = DIAS_SEMANA[(fecha.getUTCDay()+6)%7];
 
@@ -1452,15 +1528,18 @@ function mostrarDia(dateKey){
     return false;
   });
 
+  const cabecera = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <div class="mono" style="font-size:11px;color:var(--amber);letter-spacing:.1em;">${nombreDia.toUpperCase()} ${fmtFecha(fecha)}/${fecha.getUTCFullYear()}</div>
+    <button class="btn-secondary" style="width:auto;margin:0;padding:4px 10px;font-size:11px;" onclick="cerrarDetalleDia()">Cerrar ✕</button>
+  </div>`;
+
   if(items.length===0){
-    panel.style.display='block';
-    panel.innerHTML = `<div class="panel"><div style="color:var(--dim);">Sin actividad registrada ese día.</div></div>`;
-    panel.scrollIntoView({behavior:'smooth'});
+    panel.innerHTML = `<div class="panel" style="border-color:var(--amber);">${cabecera}<div style="color:var(--dim);">Sin actividad registrada ese día.</div></div>`;
+    panel.scrollIntoView({behavior:'smooth', block:'start'});
     return;
   }
 
-  let html = `<div class="panel"><div class="mono" style="font-size:11px;color:var(--amber);letter-spacing:.1em;margin-bottom:4px;">
-    ${nombreDia.toUpperCase()} ${fmtFecha(fecha)}/${fecha.getUTCFullYear()}</div>`;
+  let html = `<div class="panel" style="border-color:var(--amber);">${cabecera}`;
 
   items.forEach(r=>{
     if(r.codSer==='CO'||r.codSer==='CR'){
@@ -1486,9 +1565,48 @@ function mostrarDia(dateKey){
     }
   });
   html += `</div>`;
-  panel.style.display='block';
   panel.innerHTML = html;
-  panel.scrollIntoView({behavior:'smooth'});
+  panel.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function cerrarDetalleDia(){
+  document.getElementById('detalleDiaSlot').innerHTML = '';
+}
+
+// ================= VISTA DÍA (agenda) =================
+function renderVistaDia(rows, cal){
+  const panel = document.getElementById('diaPanel');
+  if(!rows.length){ panel.innerHTML = '<div style="color:var(--dim);font-size:13px;">Sin datos.</div>'; return; }
+  const porDia = {};
+  rows.forEach(r=>{
+    let d = new Date(Date.UTC(r.fini.getUTCFullYear(),r.fini.getUTCMonth(),r.fini.getUTCDate()));
+    const endD = new Date(Date.UTC(r.ffin.getUTCFullYear(),r.ffin.getUTCMonth(),r.ffin.getUTCDate()));
+    while(d<=endD){
+      const key = d.toISOString().slice(0,10);
+      if(!porDia[key]) porDia[key]=[];
+      porDia[key].push(r);
+      d = new Date(d.getTime()+86400000);
+    }
+  });
+  const dias = Object.keys(porDia).sort();
+  let html = '';
+  dias.forEach(key=>{
+    const fecha = new Date(key+'T00:00:00Z');
+    const nombreDia = DIAS_SEMANA[(fecha.getUTCDay()+6)%7];
+    const items = porDia[key];
+    const vuelo = items.find(r=>r.codSer==='CO'||r.codSer==='CR');
+    let resumen;
+    if(vuelo) resumen = `<span class="mono" style="color:var(--cyan);font-weight:700;">${vuelo.dep}&#8594;${vuelo.arr}</span>`;
+    else resumen = `<span style="color:var(--dim);">${TYPE_META_LARGO[items[0].codSer]||items[0].codSer}</span>`;
+    html += `<div onclick="mostrarDia('${key}')" style="display:flex;align-items:center;justify-content:space-between;
+      padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;">
+      <div style="display:flex;flex-direction:column;">
+        <span class="mono" style="font-size:11px;color:var(--dim);">${nombreDia.slice(0,3).toUpperCase()} ${fmtFecha(fecha)}</span>
+      </div>
+      <div style="font-size:13px;">${resumen}</div>
+      <span style="color:var(--dim);">&#8250;</span>
+    </div>`;
+  });
+  panel.innerHTML = html;
 }
 
 // ================= MAPA DE DESTINOS =================
@@ -1543,7 +1661,7 @@ function renderMapa(rows, cal){
 
   panel.innerHTML = `
     <div style="font-size:11px;color:var(--dim);margin-bottom:10px;">${codigos.length} destino${codigos.length===1?'':'s'} este mes</div>
-    <svg viewBox="0 0 390 440" style="width:100%;display:block;background:#060d1a;border-radius:10px;">${svgInner}</svg>
+    <svg viewBox="0 0 390 440" width="390" height="440" style="width:100%;height:auto;display:block;background:#060d1a;border-radius:10px;">${svgInner}</svg>
   `;
 }
 
