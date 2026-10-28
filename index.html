@@ -169,6 +169,11 @@
 
   .parse-summary{margin-top:14px;font-size:12px;color:var(--dim);}
   .parse-summary table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .resumen-horas{margin-top:10px;}
+  .resumen-horas th:first-child, .resumen-horas td:first-child{text-align:left;}
+  .resumen-horas th, .resumen-horas td{text-align:right;}
+  .resumen-horas td:first-child{color:var(--amber);font-weight:700;letter-spacing:.03em;}
   .parse-summary th{text-align:left;color:var(--dim);font-size:10px;text-transform:uppercase;
     padding:4px 6px;border-bottom:1px solid var(--line);}
   .parse-summary td{padding:4px 6px;border-bottom:1px solid rgba(28,44,71,.4);}
@@ -455,55 +460,55 @@
   <div class="panel collapsible">
     <div class="grid3">
       <div class="field">
-        <label>Horas de vuelo (perfil)</label>
+        <label>HORAS BLOCK</label>
         <input type="number" id="horasVuelo" value="0" step="0.1">
       </div>
       <div class="field">
-        <label>Horas de actividad total</label>
+        <label>H.ACT.ORD.</label>
         <input type="number" id="horasActividad" value="0" step="0.1">
       </div>
       <div class="field">
-        <label>Horas nocturnas (21–08 UTC)</label>
-        <input type="number" id="horasNocturnas" value="0" step="0.1">
-      </div>
-      <div class="field">
-        <label>Nº de imaginarias</label>
-        <input type="number" id="numImaginarias" value="0" step="1">
-      </div>
-      <div class="field">
-        <label>Nº de reservas</label>
-        <input type="number" id="numReservas" value="0" step="1">
-      </div>
-      <div class="field">
-        <label>Horas actividad extraordinaria (MAD&gt;21:00 UTC, BOG, PTY)</label>
+        <label>H.ACT.EXT.</label>
         <input type="number" id="horasActExtra" value="0" step="0.1">
       </div>
       <div class="field">
-        <label>¿Nómina de junio o diciembre?</label>
-        <select id="paga">
-          <option value="no">Mes ordinario</option>
-          <option value="si">Sí — paga extra (art. 70)</option>
-        </select>
+        <label>HORAS NOCT.</label>
+        <input type="number" id="horasNocturnas" value="0" step="0.1">
       </div>
       <div class="field">
-        <label>Días de vacaciones/excedencia del MES ANTERIOR (art. 63 — prorratea horas 1/2)</label>
-        <input type="number" id="diasNoTrabajados" value="0" step="1" min="0" max="30">
+        <label>IMAGINARIA</label>
+        <input type="number" id="numImaginarias" value="0" step="1">
       </div>
       <div class="field">
-        <label>Días de excedencia del MES ACTUAL (el de esta nómina — descuenta la parte fija)</label>
-        <input type="number" id="diasExcedenciaMesActual" value="0" step="1" min="0" max="30">
-      </div>
-      <div class="field">
-        <label>Reducción de jornada (%, si aplica — STS 449/2026)</label>
-        <input type="number" id="reduccionJornada" value="0" step="1" min="0" max="75" placeholder="ej. 25 para 1/4">
+        <label>RESERVAS</label>
+        <input type="number" id="numReservas" value="0" step="1">
       </div>
     </div>
     <div class="field" style="margin-top:2px;">
-      <label>Prima por objetivos del año (€, solo se abona en nómina de mayo — art. 77)</label>
+      <label>DÍAS VAC/EX MES ANTERIOR (art. 63 — prorratea horas 1/2)</label>
+      <input type="number" id="diasNoTrabajados" value="0" step="1" min="0" max="30">
+    </div>
+    <div class="field" style="margin-top:2px;">
+      <label>DÍAS EX/NR MES ACTUAL (descuenta la parte fija de esta nómina)</label>
+      <input type="number" id="diasExcedenciaMesActual" value="0" step="1" min="0" max="30">
+    </div>
+    <div class="field" style="margin-top:2px;">
+      <label>¿NÓMINA DE JUNIO O DICIEMBRE?</label>
+      <select id="paga">
+        <option value="no">Mes ordinario</option>
+        <option value="si">Sí — paga extra (art. 70)</option>
+      </select>
+    </div>
+    <div class="field" style="margin-top:2px;">
+      <label>REDUCCIÓN DE JORNADA % (si aplica — STS 449/2026)</label>
+      <input type="number" id="reduccionJornada" value="0" step="1" min="0" max="75" placeholder="ej. 25 para 1/4">
+    </div>
+    <div class="field" style="margin-top:2px;">
+      <label>PRIMA POR OBJETIVOS (€, solo se abona en nómina de mayo — art. 77)</label>
       <input type="number" id="primaObjetivos" value="0" step="1">
     </div>
     <div class="field" style="margin-top:2px;">
-      <label>IRPF estimado (%, manual — consulta tu tipo real en nóminas anteriores)</label>
+      <label>IRPF ESTIMADO % (manual — consulta tu tipo real en nóminas anteriores)</label>
       <input type="number" id="irpfPct" value="0" step="0.5" min="0" max="47">
     </div>
   </div>
@@ -934,9 +939,6 @@ function calcular(){
   const primaResp = (esComandante && rol==='P1') ? t.comandante*f*proporcionFija : 0;
   const gratifExtra = esPagaExtra ? (sb+pv+antiguedad) : 0;
   const objetivos = primaObjetivos;
-  // Art. 59: cada imaginaria devenga 3h de vuelo "fuera de mínimos" al nivel correspondiente,
-  // aunque no se llegue a volar (o si se vuela menos de 3h de perfil).
-  const payImaginariaVuelo = numImaginarias * 3 * rHv2;
   // Regla acordada: vuelos con salida de MAD posterior a las 21:00 UTC, o que toquen BOG/PTY,
   // se consideran actividad extraordinaria y se abonan al P. ACT. LAB. de la tabla, aparte del
   // umbral general de >160h.
@@ -949,7 +951,7 @@ function calcular(){
   const retribucionEspecie = billetesFree + seguroConvenio + comidaCrew;
 
   const total = sb+pv+pt+at+antiguedad+payHoras1+payHoras2+payActLab+payImaginarias+
-                payNocturnas+payReservas+dietasTotal+primaResp+gratifExtra+objetivos+payImaginariaVuelo+payActExtra+
+                payNocturnas+payReservas+dietasTotal+primaResp+gratifExtra+objetivos+payActExtra+
                 ppeMensual+retribucionEspecie;
 
   document.getElementById('totalValue').innerHTML = fmt(total) + ' <small>€ brutos</small>';
@@ -980,7 +982,7 @@ function calcular(){
     ["Prima actividad (>"+fmt(umbral160)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), Math.max(horasActividad-umbral160,0).toFixed(1)+" h × "+fmt(rPact)+" €", payActLab],
     ["Prima nocturnidad", horasNocturnas.toFixed(1)+" h × "+fmt(rHnoc)+" €", payNocturnas],
     ["Imaginarias","(prima fija) "+numImaginarias+" × "+fmt(rPimag)+" €", payImaginarias],
-    ["Horas de vuelo por imaginaria","(art. 59, fuera de mínimos) "+numImaginarias+" × 3h × "+fmt(rHv2)+" €", payImaginariaVuelo],
+
     ["Actividad extraordinaria","MAD>21:00 UTC / BOG / PTY — "+horasActExtra.toFixed(1)+" h × "+fmt(rPact)+" €", payActExtra],
     ["Reservas", numReservas+" × "+fmt(rPres)+" €", payReservas],
     ["Dietas (Anexo III)", "de las cuales "+fmt(dietasExento)+" € exentas Hacienda y "+fmt(dietasSujeto)+" € sujetas", dietasTotal],
@@ -988,7 +990,9 @@ function calcular(){
     ["Paga extra (art. 70)", esPagaExtra?"junio/diciembre":"—", gratifExtra],
     ["Prima por objetivos (art. 77)", "solo mayo", objetivos],
     ["Plan de Jubilación (PPE)", "según nivel "+nivelCod, ppeMensual],
-    ["Retribución en especie", "Billetes "+fmt(billetesFree)+" € + Seguro "+fmt(seguroConvenio)+" € + Comida "+fmt(comidaCrew)+" €", retribucionEspecie],
+    ["Valoración Billetes Free","", billetesFree],
+    ["Seguro Convenio","", seguroConvenio],
+    ["Comida Crew","", comidaCrew],
   ];
   if(irpfPct > 0){
     items.push(["IRPF estimado","−"+irpfPct+"% sobre "+fmt(baseSujetaIRPF)+" € (bruto menos dietas exentas)", -irpfEstimado]);
@@ -1007,7 +1011,7 @@ function calcular(){
   renderNominaReal({
     nivelCod, rol, sb, pv, pt, at, antiguedad,
     horas1, horas2, rHv1, rHv2, payHoras1, payHoras2,
-    numImaginarias, rPimag, payImaginarias, payImaginariaVuelo,
+    numImaginarias, rPimag, payImaginarias,
     horasNocturnas, rHnoc, payNocturnas,
     horasActExtra, rPact, payActExtra,
     numReservas, rPres, payReservas,
@@ -1034,35 +1038,51 @@ function renderNominaReal(d){
     document.getElementById('nomPeriodo').textContent = 'Período: '+document.getElementById('anio').value+' (simulado)';
   }
 
-  const rows = [
+  const devengos = [
     ['8000','Salario Base','30,00','', d.sb],
+  ];
+  if(d.antiguedad>0) devengos.push(['—','Antigüedad ad personam','30,00','', d.antiguedad]);
+  devengos.push(
     ['8148','Plus de Transporte','30,00','', d.pt],
     ['8172','Prima Razón Viaje','30,00','', d.pv],
     ['9A67','Plus Asistencia Técnica','30,00','', d.at],
     ['8222','Plus Horas Vuelo 1', d.horas1.toFixed(2), fmt(d.rHv1), d.payHoras1],
     ['8223','Plus Horas Vuelo 2', d.horas2.toFixed(2), fmt(d.rHv2), d.payHoras2],
     ['8225','Plus Imaginaria', String(d.numImaginarias), fmt(d.rPimag), d.payImaginarias],
-    ['—','Horas vuelo por imaginaria (art. 59)', (d.numImaginarias*3).toFixed(2), fmt(d.rHv2), d.payImaginariaVuelo],
     ['8230','Plus Nocturnidad', d.horasNocturnas.toFixed(2), fmt(d.rHnoc), d.payNocturnas],
     ['8310','Actividad Extraordinaria', d.horasActExtra.toFixed(2), fmt(d.rPact), d.payActExtra],
     ['8514','Reserva', String(d.numReservas), fmt(d.rPres), d.payReservas],
+  );
+  if(d.primaResp>0) devengos.push(['—','Prima resp. comandante','12,00','', d.primaResp]);
+  if(d.esPagaExtra) devengos.push(['—','Paga extra (art. 70)','—','', d.gratifExtra]);
+  devengos.push(
     ['8517','Prima por objetivos','—','', d.objetivos],
     ['9A07','Dietas Exenta Tributación','—','', d.dietasExento],
     ['9A08','Dietas Sujetas Retención','—','', d.dietasSujeto],
-  ];
-  if(d.ppeMensual>0) rows.push(['9154','Plan de Jubilación','—','', d.ppeMensual]);
-  if(d.billetesFree>0) rows.push(['8985','Valoración Billetes Free','—','', d.billetesFree]);
-  if(d.seguroConvenio>0) rows.push(['8995','Seguro Convenio','—','', d.seguroConvenio]);
-  if(d.comidaCrew>0) rows.push(['8997','Comida Crew','—','', d.comidaCrew]);
-  if(d.antiguedad>0) rows.splice(4,0,['—','Antigüedad ad personam','30,00','', d.antiguedad]);
-  if(d.primaResp>0) rows.push(['—','Prima resp. comandante','12,00','', d.primaResp]);
-  if(d.esPagaExtra) rows.push(['—','Paga extra (art. 70)','—','', d.gratifExtra]);
+  );
 
-  document.getElementById('nomBody').innerHTML = rows.map(([cod,nombre,uni,precio,val])=>`
-    <tr><td>${cod}</td><td>${nombre}</td><td style="text-align:right;">${uni}</td>
-    <td style="text-align:right;" class="rate">${precio}</td>
-    <td style="text-align:right;font-weight:600;">${fmt(val)}</td></tr>`).join('');
+  const especie = [];
+  if(d.billetesFree>0) especie.push(['8985','Valoración Billetes Free','—','', d.billetesFree]);
+  if(d.seguroConvenio>0) especie.push(['8995','Seguro Convenio','—','', d.seguroConvenio]);
+  if(d.comidaCrew>0) especie.push(['8997','Comida Crew','—','', d.comidaCrew]);
 
+  const pensiones = [];
+  if(d.ppeMensual>0) pensiones.push(['9154','Plan de Jubilación','—','', d.ppeMensual]);
+
+  function filaCabecera(titulo){
+    return `<tr><td colspan="5" style="padding-top:16px;padding-bottom:4px;font-size:10.5px;letter-spacing:.1em;color:var(--amber);font-weight:700;border-bottom:1px solid var(--line);">${titulo}</td></tr>`;
+  }
+  function filaConcepto([cod,nombre,uni,precio,val]){
+    return `<tr><td>${cod}</td><td>${nombre}</td><td style="text-align:right;">${uni}</td>
+      <td style="text-align:right;" class="rate">${precio}</td>
+      <td style="text-align:right;font-weight:600;">${fmt(val)}</td></tr>`;
+  }
+
+  let html = filaCabecera('DEVENGOS') + devengos.map(filaConcepto).join('');
+  if(especie.length) html += filaCabecera('RETRIBUCIÓN EN ESPECIE') + especie.map(filaConcepto).join('');
+  if(pensiones.length) html += filaCabecera('PLANES DE PENSIONES') + pensiones.map(filaConcepto).join('');
+
+  document.getElementById('nomBody').innerHTML = html;
   document.getElementById('nomTotal').innerHTML = fmt(d.total) + ' <small>€</small>';
 }
 
@@ -1134,8 +1154,35 @@ function parseRoster(text){
 // Art. 45: el periodo de actividad real de un servicio de vuelo no es el bloque (salida-llegada),
 // es desde la presentación/firma hasta 30 min después de calzos. Para la flota 787, el margen de
 // firma es 1h30 si el vuelo sale de Madrid, y 1h10 si sale de fuera de Madrid.
+// ================= HORA LOCAL DE MADRID (CET/CEST) =================
+// Horario de verano europeo: desde la 01:00 UTC del último domingo de marzo
+// hasta la 01:00 UTC del último domingo de octubre.
+function esHorarioVeranoEuropeo(utcDate){
+  const year = utcDate.getUTCFullYear();
+  function ultimoDomingoA1utc(mes){
+    const d = new Date(Date.UTC(year, mes+1, 0, 1, 0));
+    const dow = d.getUTCDay();
+    d.setUTCDate(d.getUTCDate() - dow);
+    return d;
+  }
+  const inicio = ultimoDomingoA1utc(2);  // marzo
+  const fin = ultimoDomingoA1utc(9);     // octubre
+  return utcDate >= inicio && utcDate < fin;
+}
+function offsetMadridHoras(utcDate){ return esHorarioVeranoEuropeo(utcDate) ? 2 : 1; }
+function aHoraLocalMadrid(utcDate){ return new Date(utcDate.getTime() + offsetMadridHoras(utcDate)*3600000); }
+function diaLocalMadrid(utcDate){ return aHoraLocalMadrid(utcDate).toISOString().slice(0,10); }
+// Medianoche siguiente en hora local de Madrid, expresada de vuelta en UTC.
+function finDiaLocalEnUTC(utcDate){
+  const off = offsetMadridHoras(utcDate);
+  const l = aHoraLocalMadrid(utcDate);
+  const medianocheLocal = new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth(), l.getUTCDate()+1, 0, 0));
+  return new Date(medianocheLocal.getTime() - off*3600000);
+}
+function fmtHoraLocal(utcDate){ return fmtHora(aHoraLocalMadrid(utcDate)); }
+
 function extenderServicio(r){
-  const margenAntesMin = (r.dep===BASE) ? 90 : 70;
+  const margenAntesMin = (r.dep===BASE) ? 90 : 75; // 1h30 en MAD, 1h15 fuera (confirmado)
   const margenDespuesMin = 30;
   return {
     inicio: new Date(r.fini.getTime() - margenAntesMin*60000),
@@ -1169,9 +1216,18 @@ function nightOverlapHours(start, end){
 //   Viaje con pernocta, salida de MAD "medio día" (no activa art.76):
 //     día1=DLP, días intermedios=DLP, último día=DLC
 //   Curso/Simulador/Reconocimiento médico (OC/SR/RM): siempre 1× DNC
+// Devuelve {totales, porDia}: totales = código->unidades; porDia = "YYYY-MM-DD" (hora local
+// Madrid) -> {codigo, cantidad, motivo}. Todo el conteo de días naturales y la comprobación de
+// las 2h usa hora LOCAL de Madrid (con su cambio de hora), tal y como exige el Anexo III — solo
+// la clasificación nocturno/medio día (art. 76) sigue en UTC, porque el convenio la define así.
 function calcularDietasPorViaje(rows){
-  const dietaTotales = {}; // código -> nº de unidades (DLT2 cuenta como 0.5 de DLT)
+  const dietaTotales = {};
+  const porDia = {};
   function add(codigo, cantidad){ dietaTotales[codigo] = (dietaTotales[codigo]||0) + cantidad; }
+  function marcar(fechaLocal, codigo, cantidad, motivo){
+    porDia[fechaLocal] = {codigo, cantidad, motivo};
+    add(codigo, cantidad);
+  }
 
   const vuelos = rows.filter(r=>r.codSer==='CO'||r.codSer==='CR').sort((a,b)=>a.fini-b.fini);
   let i = 0;
@@ -1185,28 +1241,52 @@ function calcularDietasPorViaje(rows){
         j++;
       }
       if(vuelta){
-        const diaIni = new Date(Date.UTC(r.fini.getUTCFullYear(),r.fini.getUTCMonth(),r.fini.getUTCDate()));
-        const diaFin = new Date(Date.UTC(vuelta.ffin.getUTCFullYear(),vuelta.ffin.getUTCMonth(),vuelta.ffin.getUTCDate()));
-        const nDias = Math.round((diaFin-diaIni)/86400000) + 1;
+        // El día 1 del viaje empieza con la FIRMA (cuando arranca la actividad, art. 45), no con
+        // la salida — si la firma es de MAD, existe siempre; si no, se usa la propia salida.
+        const firmaIda = calcularFirma(r) || r.fini;
+        const diaIniLocal = diaLocalMadrid(firmaIda);
+        const diaFinLocal = diaLocalMadrid(vuelta.ffin);
+        const nDias = Math.round((new Date(diaFinLocal+'T00:00:00Z') - new Date(diaIniLocal+'T00:00:00Z'))/86400000) + 1;
 
         if(nDias <= 1){
-          // Ida y vuelta el mismo día: "Corto"
-          add(tipoAirportCorto(r.arr), 1);
+          marcar(diaIniLocal, tipoAirportCorto(r.arr), 1, 'Ida y vuelta el mismo día (local), '+r.arr);
         } else {
-          const esNocturno = nightOverlapHours(r.fini, r.ffin) >= 4;
-          if(esNocturno){
-            add('DLT', 0.5); // DLT2 = mitad de DLT
-            for(let d=1; d<nDias-1; d++) add('DLP', 1);
-            add('DLT', 1);
-          } else {
-            add('DLP', 1);
-            for(let d=1; d<nDias-1; d++) add('DLP', 1);
-            add('DLC', 1);
+          const esNocturno = nightOverlapHours(r.fini, r.ffin) >= 4; // art.76: siempre en UTC
+          const esLarga = !ES_AIRPORTS.has(r.arr) && !EU_AIRPORTS.has(r.arr) && !CORTO_INT_AIRPORTS.has(r.arr);
+
+          // Art. 81/Anexo III, "tres cuartos" (DLT2/DLC2 = 0,75): el servicio empieza en base y la
+          // actividad DENTRO de ese día natural LOCAL (firma hasta medianoche local o fin de
+          // actividad, lo que sea antes) es inferior a 2h. Solo en larga distancia.
+          let primerDiaReducido = false;
+          const firma = calcularFirma(r);
+          if(esLarga && firma){
+            const finDia1Local = finDiaLocalEnUTC(firma);
+            const extendido = extenderServicio(r);
+            const limiteDia1 = extendido.fin < finDia1Local ? extendido.fin : finDia1Local;
+            const horasDia1 = (limiteDia1 - firma)/3600000;
+            primerDiaReducido = horasDia1 < 2;
           }
+
+          // Construir la lista de días naturales LOCALES que cubre el viaje.
+          const diasLocales = [];
+          let d = new Date(diaIniLocal+'T00:00:00Z');
+          const fin = new Date(diaFinLocal+'T00:00:00Z');
+          while(d<=fin){ diasLocales.push(d.toISOString().slice(0,10)); d = new Date(d.getTime()+86400000); }
+
+          const codigoUltimo = esNocturno ? 'DLT' : 'DLC';
+          const codigoPrimero = esNocturno ? 'DLT' : 'DLC';
+          diasLocales.forEach((fechaLocal, idx)=>{
+            if(idx===0 && primerDiaReducido){
+              marcar(fechaLocal, codigoPrimero, 0.75, 'Día 1, empieza en base y <2h de actividad ese día local — 3/4 (DLT2/DLC2)');
+            } else if(idx===diasLocales.length-1){
+              marcar(fechaLocal, codigoUltimo, 1, 'Último día, regreso ('+(esNocturno?'nocturno':'medio día')+')');
+            } else {
+              marcar(fechaLocal, 'DLP', 1, idx===0?'Día 1, pernocta (sin reducción, ≥2h de actividad ese día)':'Día intermedio, pernocta');
+            }
+          });
         }
       } else {
-        // Vuelo de ida sin vuelta localizada en la programación: se trata como corto al destino
-        add(tipoAirportCorto(r.arr), 1);
+        marcar(diaLocalMadrid(r.fini), tipoAirportCorto(r.arr), 1, 'Vuelo de ida sin vuelta localizada');
       }
       i = vuelta ? j+1 : i+1;
     } else {
@@ -1216,10 +1296,10 @@ function calcularDietasPorViaje(rows){
 
   // Curso / Simulador / Reconocimiento médico: siempre 1 dieta DNC
   rows.forEach(r=>{
-    if(r.codSer==='OC' || r.codSer==='SR' || r.codSer==='RM') add('DNC', 1);
+    if(r.codSer==='OC' || r.codSer==='SR' || r.codSer==='RM') marcar(diaLocalMadrid(r.fini), 'DNC', 1, 'Curso/Simulador/Reconoc. médico');
   });
 
-  return dietaTotales;
+  return {totales: dietaTotales, porDia};
 }
 
 function procesarProgramacion(){
@@ -1245,7 +1325,7 @@ function procesarProgramacion(){
   rows = merged;
   aplicarAjustesARows(rows);
 
-  let horasVuelo=0, horasActividad=0, horasNocturnas=0, imaginarias=0, diasNoTrabajados=0, horasActExtra=0;
+  let horasVuelo=0, horasActividad=0, horasActividadVuelos=0, horasNocturnas=0, imaginarias=0, diasNoTrabajados=0, horasActExtra=0;
   const vuelosExtraordinarios = [];
   const rutasNoEncontradas = new Set();
 
@@ -1310,6 +1390,7 @@ function procesarProgramacion(){
             const fin = new Date(vuelosAct[ultimoArrBase].ffin.getTime() + 30*60000);
             const durH = (fin-inicio)/3600000;
             horasActividad += durH;
+            horasActividadVuelos += durH;
             const solape = nightOverlapHours(inicio, fin);
             horasNocturnas += (solape>=4) ? durH : solape;
             i = ultimoArrBase+1;
@@ -1321,6 +1402,7 @@ function procesarProgramacion(){
         const ext = extenderServicio(r);
         const durH = (ext.fin-ext.inicio)/3600000;
         horasActividad += durH;
+        horasActividadVuelos += durH;
         const solape = nightOverlapHours(ext.inicio, ext.fin);
         horasNocturnas += (solape>=4) ? durH : solape;
         i++;
@@ -1353,11 +1435,13 @@ function procesarProgramacion(){
         const bogpty = (r.arr==='BOG'||r.arr==='PTY');
         if(tardia || bogpty){
           horasActExtra += durIda;
+          r.horasActExtra = durIda;
           vuelosExtraordinarios.push(`${r.fini.toISOString().slice(0,10)} ${r.dep}→${r.arr} (ida${tardia?', salida MAD>21:00z':''}${bogpty?', BOG/PTY':''})`);
           if(vuelta){
             const extVuelta = extenderServicio(vuelta);
             const durVuelta = (extVuelta.fin-extVuelta.inicio)/3600000;
             horasActExtra += durVuelta;
+            vuelta.horasActExtra = durVuelta;
             vuelosExtraordinarios.push(`${vuelta.fini.toISOString().slice(0,10)} ${vuelta.dep}→${vuelta.arr} (vuelta del mismo viaje)`);
           }
         }
@@ -1368,8 +1452,9 @@ function procesarProgramacion(){
     }
   }
 
-  // Dietas: motor de secuencias por viaje (ver calcularDietasPorViaje)
-  const dietaResultado = calcularDietasPorViaje(rows);
+  // Dietas: motor de secuencias por viaje, con hora local de Madrid (ver calcularDietasPorViaje)
+  const {totales: dietaResultado, porDia: dietasPorDia} = calcularDietasPorViaje(rows);
+  window.ultimoDietasPorDia = dietasPorDia;
   const CODIGO_A_INDICE = {DNC:0, DNP:1, DIC:3, DLC:8, DLP:9, DLT:10};
   const dietaCounts = {};
   Object.keys(dietaResultado).forEach(codigo=>{
@@ -1438,18 +1523,22 @@ function procesarProgramacion(){
     </div>`;
   }
 
+  const numReservasActual = parseFloat(document.getElementById('numReservas').value)||0;
   summaryEl.innerHTML = `
     <b style="color:var(--amber);">Programación procesada</b> — ${rows.length} filas detectadas${cambios.length?` (${cambios.length} de cambios)`:''}.
     <span style="color:var(--cyan);">Calendario, semana y mapa generados en sus pestañas.</span>
     ${mesNominaTexto}
     ${cambiosHtml}
-    <table>
-      <tr><th>Horas de vuelo</th><td>${fmt(horasVuelo)} h</td></tr>
-      <tr><th>Horas de actividad</th><td>${fmt(horasActividad)} h</td></tr>
-      <tr><th>Horas nocturnas</th><td>${fmt(horasNocturnas)} h</td></tr>
-      <tr><th>Imaginarias</th><td>${imaginarias}</td></tr>
-      <tr><th>Actividad extraordinaria</th><td>${fmt(horasActExtra)} h${vuelosExtraordinarios.length?' — '+vuelosExtraordinarios.join('; '):''}</td></tr>
+    <table class="resumen-horas">
+      <tr><th>Concepto</th><th>H:MM</th><th>Decimal</th></tr>
+      <tr><td>HORAS BLOCK</td><td class="mono">${fmtHM(horasVuelo)}</td><td class="mono">${fmt(horasVuelo)}</td></tr>
+      <tr><td>HORAS ACT. ORD.</td><td class="mono">${fmtHM(horasActividad)}</td><td class="mono">${fmt(horasActividad)}</td></tr>
+      <tr><td>HORAS ACT. EXT.</td><td class="mono">${fmtHM(horasActExtra)}</td><td class="mono">${fmt(horasActExtra)}</td></tr>
+      <tr><td>HORAS NOCTURNAS</td><td class="mono">${fmtHM(horasNocturnas)}</td><td class="mono">${fmt(horasNocturnas)}</td></tr>
+      <tr><td>IMAGINARIAS</td><td class="mono" colspan="2">${imaginarias}</td></tr>
+      <tr><td>RESERVAS</td><td class="mono" colspan="2">${numReservasActual}</td></tr>
     </table>
+    ${vuelosExtraordinarios.length?`<div style="font-size:11px;color:var(--dim);margin:6px 0 10px;">Actividad extraordinaria: ${vuelosExtraordinarios.join('; ')}</div>`:''}
     <table>
       <tr><th>Dieta</th><th>Días</th></tr>
       ${dietaRowsHtml}
@@ -1591,6 +1680,14 @@ function calcularFirma(row){
   return new Date(row.fini.getTime() - 90*60000);
 }
 function fmtHora(d){ return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'); }
+// Formatea horas decimales como "H:MM" (admite negativos).
+function fmtHM(horasDecimales){
+  const signo = horasDecimales<0 ? '-' : '';
+  const abs = Math.abs(horasDecimales);
+  const hh = Math.floor(abs);
+  const mm = Math.round((abs-hh)*60);
+  return signo+hh+':'+String(mm).padStart(2,'0');
+}
 function fmtFecha(d){ return String(d.getUTCDate()).padStart(2,'0')+'/'+String(d.getUTCMonth()+1).padStart(2,'0'); }
 
 // ================= VISTA SEMANA =================
@@ -1674,39 +1771,75 @@ function mostrarDia(dateKey){
 
   let html = `<div class="panel" style="border-color:var(--amber);">${cabecera}`;
 
+  const dietasPorDia = window.ultimoDietasPorDia || {};
+
   items.forEach((r,idx)=>{
     if(r.codSer==='CO'||r.codSer==='CR'){
       const firma = calcularFirma(r);
-      const durH = (r.ffin-r.fini)/3600000;
       const key = vueloKey(r);
       const inputId = 'ajuste_'+idx+'_'+key.replace(/[^a-zA-Z0-9]/g,'_');
+
+      // Hora bloque: MÁXIMO(perfil, real) — si hay ajuste real y su bloque es mayor que el perfil,
+      // se paga el real; si no, se paga siempre el perfil.
+      const durHBloque = (r.ffin-r.fini)/3600000;
+      const key1 = r.dep+r.arr, key2 = r.arr+r.dep;
+      let perfil = PERFILES_787[key1]; if(perfil===undefined) perfil = PERFILES_787[key2];
+      if(perfil===undefined) perfil = Math.max(durHBloque-1.25,0);
+      const horaBloque = r.ajustado ? Math.max(perfil, durHBloque) : perfil;
+
+      // Actividad ordinaria de este tramo (art. 45, margen de firma/calzos)
+      const ext = extenderServicio(r);
+      const actOrd = (ext.fin-ext.inicio)/3600000;
+
+      // Actividad extraordinaria (si este vuelo forma parte de un viaje MAD>21:00/BOG/PTY)
+      const actExt = r.horasActExtra;
+
+      // Nocturnidad de este tramo (art. 76, siempre en UTC)
+      const solapeNoc = nightOverlapHours(ext.inicio, ext.fin);
+      const noc = solapeNoc>=4 ? actOrd : solapeNoc;
+
+      // Dieta de este día (del mapa calculado por calcularDietasPorViaje, hora local Madrid)
+      const diaLocalDeEsteVuelo = diaLocalMadrid(r.fini);
+      const dietaDia = dietasPorDia[diaLocalDeEsteVuelo];
+
       html += `<div style="border:1px solid #2a5a52;background:#0e2422;border-radius:12px;padding:16px;margin:10px 0;">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
-          <span class="mono" style="font-size:19px;font-weight:700;color:var(--cyan);">${r.dep} &#8594; ${r.arr}</span>
-          <span style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${r.ajustado?'rgba(107,255,176,.15)':'rgba(125,144,172,.15)'};color:${r.ajustado?'var(--green)':'var(--dim)'};">${r.ajustado?'REAL':'ESTIMADO'}</span>
-            <span class="mono" style="font-size:11px;color:var(--dim);">${durH.toFixed(1)}h</span>
-          </span>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span class="mono" style="font-size:17px;font-weight:700;color:var(--cyan);">${r.dep} <small style="color:var(--dim);font-weight:400;font-size:11px;">(${fmtHora(r.fini)}z)</small></span>
+          <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${r.ajustado?'rgba(107,255,176,.15)':'rgba(125,144,172,.15)'};color:${r.ajustado?'var(--green)':'var(--dim)'};">${r.ajustado?'REAL':'ESTIMADO'}</span>
         </div>
-        ${firma?`<div style="display:flex;align-items:center;gap:10px;background:#241a08;border:1px solid #664c1c;border-radius:8px;padding:10px;margin-bottom:8px;">
-          <span style="font-size:11px;color:#ffc966;">Firma (salida &minus; 1h30)</span>
-          <span class="mono" style="margin-left:auto;font-size:16px;font-weight:700;color:#ffc966;">${fmtHora(firma)}z</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span class="mono" style="font-size:17px;font-weight:700;color:var(--cyan);">&#8594; ${r.arr} <small style="color:var(--dim);font-weight:400;font-size:11px;">(${fmtHora(r.ffin)}z)</small></span>
+        </div>
+        ${firma?`<div style="font-size:11px;color:#ffc966;margin-bottom:8px;">
+          Hora firma: <span class="mono" style="font-weight:700;">${fmtHora(firma)}z</span> &nbsp;/&nbsp; <span class="mono" style="font-weight:700;">${fmtHoraLocal(firma)} LT</span>
         </div>`:''}
-        <div style="display:flex;gap:20px;margin-bottom:10px;">
-          <div><div style="font-size:9px;color:var(--dim);">SALIDA</div><span class="mono" style="font-size:14px;">${fmtHora(r.fini)}z</span></div>
-          <div><div style="font-size:9px;color:var(--dim);">LLEGADA</div><span class="mono" style="font-size:14px;">${fmtHora(r.ffin)}z</span></div>
-        </div>
-        <div style="border-top:1px solid #1c3833;padding-top:10px;">
-          <div style="font-size:10px;color:var(--dim);margin-bottom:6px;">Ajustar a hora real (UTC)</div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <input type="time" id="${inputId}_sal" value="${fmtHora(r.fini)}" style="width:auto;flex:1;min-width:90px;">
-            <span style="color:var(--dim);">&#8594;</span>
-            <input type="time" id="${inputId}_lle" value="${fmtHora(r.ffin)}" style="width:auto;flex:1;min-width:90px;">
+        <div style="border-top:1px solid #1c3833;padding-top:10px;margin-bottom:10px;">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:6px;">Hora real (UTC) — si difiere de la programada</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;">
+            <div style="flex:1;min-width:110px;">
+              <div style="font-size:9px;color:var(--dim);">SALIDA REAL</div>
+              <input type="time" id="${inputId}_sal" value="${fmtHora(r.fini)}">
+            </div>
+            <div style="flex:1;min-width:110px;">
+              <div style="font-size:9px;color:var(--dim);">LLEGADA REAL</div>
+              <input type="time" id="${inputId}_lle" value="${fmtHora(r.ffin)}">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
             <button class="btn-secondary" style="width:auto;margin:0;padding:8px 10px;font-size:11px;"
               onclick="guardarAjusteDesdeUI('${key}','${dateKey}','${inputId}')">Guardar real</button>
             ${r.ajustado?`<button class="btn-secondary" style="width:auto;margin:0;padding:8px 10px;font-size:11px;color:var(--red);"
               onclick="quitarAjusteDesdeUI('${key}','${dateKey}')">Quitar ajuste</button>`:''}
           </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-top:1px solid #1c3833;padding-top:10px;margin-bottom:8px;">
+          <div><div style="font-size:9px;color:var(--dim);">HORA BLOQUE</div><span class="mono" style="font-size:14px;font-weight:700;">${fmtHM(horaBloque)}</span></div>
+          <div><div style="font-size:9px;color:var(--dim);">ACT. ORD.</div><span class="mono" style="font-size:14px;font-weight:700;">${fmtHM(actOrd)}</span></div>
+          <div><div style="font-size:9px;color:var(--dim);">ACT. EXT.</div><span class="mono" style="font-size:14px;font-weight:700;color:${actExt?'var(--amber)':'var(--dim)'};">${actExt?fmtHM(actExt):'—'}</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><div style="font-size:9px;color:var(--dim);">NOC.</div><span class="mono" style="font-size:14px;font-weight:700;">${fmtHM(noc)}</span></div>
+          <div><div style="font-size:9px;color:var(--dim);">DIETA</div><span class="mono" style="font-size:14px;font-weight:700;color:var(--cyan);">${dietaDia?dietaDia.codigo+(dietaDia.cantidad!==1?' ×'+dietaDia.cantidad:''):'—'}</span></div>
         </div>
       </div>`;
     } else {
