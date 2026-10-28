@@ -1047,6 +1047,18 @@ function parseRoster(text){
   return rows;
 }
 
+// Art. 45: el periodo de actividad real de un servicio de vuelo no es el bloque (salida-llegada),
+// es desde la presentación/firma hasta 30 min después de calzos. Para la flota 787, el margen de
+// firma es 1h30 si el vuelo sale de Madrid, y 1h10 si sale de fuera de Madrid.
+function extenderServicio(r){
+  const margenAntesMin = (r.dep===BASE) ? 90 : 70;
+  const margenDespuesMin = 30;
+  return {
+    inicio: new Date(r.fini.getTime() - margenAntesMin*60000),
+    fin: new Date(r.ffin.getTime() + margenDespuesMin*60000),
+  };
+}
+
 function nightOverlapHours(start, end){
   let total = 0;
   let cursor = new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth(),start.getUTCDate()));
@@ -1173,16 +1185,17 @@ function procesarProgramacion(){
     // Solo los servicios de vuelo reales (CO / CR) generan horas de actividad y nocturnidad.
     // La instrucción en tierra (OC/SR), imaginaria, libres y "sin actividad" quedan excluidos.
     const esVueloReal = (r.codSer==='CO' || r.codSer==='CR');
-    let durH = 0;
+    const durHBloque = (r.ffin - r.fini)/3600000; // solo bloque, para el perfil de vuelo
+    let durH = 0; // periodo de actividad extendido (art. 45), para actividad/nocturnidad
     if(esVueloReal){
-      durH = (r.ffin - r.fini)/3600000;
+      const ext = extenderServicio(r);
+      durH = (ext.fin - ext.inicio)/3600000;
       horasActividad += durH;
-      // Art. 76: si el servicio acumula >=4h dentro de 21:00-08:00 UTC, TODO el servicio
-      // se retribuye como nocturno (no solo el solape).
-      const solapeNocturno = nightOverlapHours(r.fini, r.ffin);
-      if(solapeNocturno >= 4){
-        horasNocturnas += durH;
-      }
+      // Art. 76: si el servicio (ya con el margen de firma/calzos del art. 45) acumula >=4h
+      // dentro de 21:00-08:00 UTC, TODO el periodo se retribuye como nocturno. Si acumula menos
+      // de 4h, se pagan solo esas horas de solape (no cero, no el periodo completo).
+      const solapeNocturno = nightOverlapHours(ext.inicio, ext.fin);
+      horasNocturnas += (solapeNocturno >= 4) ? durH : solapeNocturno;
     }
 
     if(r.codSer==='CO' || r.codSer==='CR'){
@@ -1190,7 +1203,7 @@ function procesarProgramacion(){
       let perfil = PERFILES_787[key1];
       if(perfil===undefined) perfil = PERFILES_787[key2];
       if(perfil===undefined){
-        perfil = Math.max(durH-1.25,0);
+        perfil = Math.max(durHBloque-1.25,0);
         rutasNoEncontradas.add(r.dep+'-'+r.arr);
       }
       horasVuelo += perfil;
@@ -1213,7 +1226,10 @@ function procesarProgramacion(){
           if(vuelos[j].dep===BASE) break; // empezó otro viaje antes de cerrar este
           j++;
         }
-        const durIda = (r.ffin-r.fini)/3600000;
+        // Art. 45: la hora de salida que marca el criterio es la programada (sin margen),
+        // pero las horas que se pagan son el periodo de actividad ya extendido con firma/calzos.
+        const extIda = extenderServicio(r);
+        const durIda = (extIda.fin-extIda.inicio)/3600000;
         const salidaMin = r.fini.getUTCHours()*60 + r.fini.getUTCMinutes();
         const tardia = salidaMin > 21*60;
         const bogpty = (r.arr==='BOG'||r.arr==='PTY');
@@ -1221,7 +1237,8 @@ function procesarProgramacion(){
           horasActExtra += durIda;
           vuelosExtraordinarios.push(`${r.fini.toISOString().slice(0,10)} ${r.dep}→${r.arr} (ida${tardia?', salida MAD>21:00z':''}${bogpty?', BOG/PTY':''})`);
           if(vuelta){
-            const durVuelta = (vuelta.ffin-vuelta.fini)/3600000;
+            const extVuelta = extenderServicio(vuelta);
+            const durVuelta = (extVuelta.fin-extVuelta.inicio)/3600000;
             horasActExtra += durVuelta;
             vuelosExtraordinarios.push(`${vuelta.fini.toISOString().slice(0,10)} ${vuelta.dep}→${vuelta.arr} (vuelta del mismo viaje)`);
           }
