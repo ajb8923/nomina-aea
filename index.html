@@ -486,12 +486,12 @@
         </select>
       </div>
       <div class="field">
-        <label>Días de vacaciones/excedencia este mes (art. 63 — prorratea horas 1/2)</label>
+        <label>Días de vacaciones/excedencia del MES ANTERIOR (art. 63 — prorratea horas 1/2)</label>
         <input type="number" id="diasNoTrabajados" value="0" step="1" min="0" max="30">
       </div>
       <div class="field">
-        <label>...de los cuales, días de excedencia (se descuentan de la parte fija)</label>
-        <input type="number" id="diasExcedencia" value="0" step="1" min="0" max="30">
+        <label>Días de excedencia del MES ACTUAL (el de esta nómina — descuenta la parte fija)</label>
+        <input type="number" id="diasExcedenciaMesActual" value="0" step="1" min="0" max="30">
       </div>
       <div class="field">
         <label>Reducción de jornada (%, si aplica — STS 449/2026)</label>
@@ -821,13 +821,14 @@ function calcular(){
   const esPagaExtra = document.getElementById('paga').value === 'si';
   const esComandante = document.getElementById('comandante').checked;
   const diasNoTrabajados = Math.min(30, Math.max(0, parseFloat(document.getElementById('diasNoTrabajados').value)||0));
-  const diasExcedencia = Math.min(30, Math.max(0, parseFloat(document.getElementById('diasExcedencia').value)||0));
+  const diasExcedenciaMesActual = Math.min(30, Math.max(0, parseFloat(document.getElementById('diasExcedenciaMesActual').value)||0));
   const reduccionJornadaPct = Math.min(75, Math.max(0, parseFloat(document.getElementById('reduccionJornada').value)||0));
 
-  // Vacaciones son días PAGADOS (solo prorratean horas 1/2 y actividad, art. 63) — la parte fija
-  // se cobra íntegra. Excedencia (p. ej. guarda legal) NO se paga: además de prorratear los
-  // umbrales, hay que descontar la parte fija en proporción a esos días (1/30 por día).
-  const proporcionFija = (30 - diasExcedencia) / 30;
+  // Pago a mes vencido: las horas 1/2 se prorratean con la excedencia del MES ANTERIOR (el de
+  // la actividad, ver diasNoTrabajados más abajo), pero la parte fija (salario base, plus
+  // transporte, prima viaje, asistencia técnica) corresponde al MES ACTUAL de esta nómina —
+  // así que su descuento usa los días de excedencia del mes actual, no los del mes anterior.
+  const proporcionFija = (30 - diasExcedenciaMesActual) / 30;
   const sb = salarioBase*f*proporcionFija, pv = primaViaje*f*proporcionFija,
         pt = plusTransp*f*proporcionFija, at = asistTec*f*proporcionFija,
         antiguedad = antiguedadBase*proporcionFija;
@@ -894,10 +895,10 @@ function calcular(){
   }
 
   const items = [
-    ["Salario base","(×14, tabla "+document.getElementById('anio').value+")"+(diasExcedencia>0?" · descontado por excedencia":""), sb],
-    ["Prima razón viaje","(×14)"+(diasExcedencia>0?" · descontado por excedencia":""), pv],
-    ["Plus de transporte","(×12)"+(diasExcedencia>0?" · descontado por excedencia":""), pt],
-    ["Asistencia técnica","(×12)"+(diasExcedencia>0?" · descontado por excedencia":""), at],
+    ["Salario base","(×14, tabla "+document.getElementById('anio').value+")"+(diasExcedenciaMesActual>0?" · descontado por excedencia":""), sb],
+    ["Prima razón viaje","(×14)"+(diasExcedenciaMesActual>0?" · descontado por excedencia":""), pv],
+    ["Plus de transporte","(×12)"+(diasExcedenciaMesActual>0?" · descontado por excedencia":""), pt],
+    ["Asistencia técnica","(×12)"+(diasExcedenciaMesActual>0?" · descontado por excedencia":""), at],
     ["Antigüedad ad personam","", antiguedad],
     ["Horas 1 ("+fmt(umbral55)+"–"+fmt(umbral75)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), horas1.toFixed(1)+" h × "+fmt(rHv1)+" €", payHoras1],
     ["Horas 2 (>"+fmt(umbral75)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), horas2.toFixed(1)+" h × "+fmt(rHv2)+" €", payHoras2],
@@ -1147,17 +1148,15 @@ function procesarProgramacion(){
   const {merged, affectedDates} = mergeCambios(rows, cambios);
   rows = merged;
 
-  let horasVuelo=0, horasActividad=0, horasNocturnas=0, imaginarias=0, diasNoTrabajados=0, diasExcedencia=0, horasActExtra=0;
+  let horasVuelo=0, horasActividad=0, horasNocturnas=0, imaginarias=0, diasNoTrabajados=0, horasActExtra=0;
   const vuelosExtraordinarios = [];
   const rutasNoEncontradas = new Set();
 
   for(const r of rows){
     if(r.codSer==='VA' || r.codSer==='EX'){
       // Art. 63: cada día natural de vacaciones/excedencia con reserva prorratea (1/30) los
-      // umbrales de 55h, 75h y 160h. Además, la excedencia (a diferencia de las vacaciones,
-      // que son días pagados) también descuenta la parte fija de la retribución.
+      // umbrales de 55h, 75h y 160h.
       diasNoTrabajados += (r.ffin - r.fini)/86400000;
-      if(r.codSer==='EX') diasExcedencia += (r.ffin - r.fini)/86400000;
       continue;
     }
     if(r.codSer==='LI' || r.codSer==='LN' || r.codSer==='SA'){
@@ -1249,7 +1248,6 @@ function procesarProgramacion(){
   document.getElementById('horasNocturnas').value = horasNocturnas.toFixed(1);
   document.getElementById('numImaginarias').value = imaginarias;
   document.getElementById('diasNoTrabajados').value = Math.round(diasNoTrabajados);
-  document.getElementById('diasExcedencia').value = Math.round(diasExcedencia);
   document.getElementById('horasActExtra').value = horasActExtra.toFixed(1);
   Object.keys(dietaCounts).forEach(idx=>{
     const el = document.getElementById('dieta_'+idx);
