@@ -170,10 +170,19 @@
   .parse-summary{margin-top:14px;font-size:12px;color:var(--dim);}
   .parse-summary table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;}
   .mono{font-family:'JetBrains Mono',monospace;}
-  .resumen-horas{margin-top:10px;}
-  .resumen-horas th:first-child, .resumen-horas td:first-child{text-align:left;}
-  .resumen-horas th, .resumen-horas td{text-align:right;}
-  .resumen-horas td:first-child{color:var(--amber);font-weight:700;letter-spacing:.03em;}
+  .resumen-flex{display:flex;gap:28px;align-items:flex-start;margin-top:10px;flex-wrap:wrap;}
+  .dietas-grid{border-left:1px solid var(--line);padding-left:26px;}
+  .horas-grid{display:grid;grid-template-columns:max-content max-content max-content;
+    column-gap:12px;row-gap:7px;font-size:11.5px;align-items:baseline;}
+  .horas-grid .hg-h{color:var(--dim);font-size:9px;text-transform:uppercase;letter-spacing:.05em;
+    padding-bottom:4px;border-bottom:1px solid rgba(28,44,71,.5);}
+  .horas-grid .hg-label{color:var(--amber);font-weight:700;letter-spacing:.02em;white-space:nowrap;}
+  .horas-grid .hg-val{text-align:right;justify-self:end;white-space:nowrap;}
+  .dietas-grid{display:grid;grid-template-columns:max-content max-content;column-gap:14px;row-gap:7px;font-size:11.5px;}
+  .dietas-grid .hg-h{color:var(--dim);font-size:9px;text-transform:uppercase;letter-spacing:.05em;
+    padding-bottom:4px;border-bottom:1px solid rgba(28,44,71,.5);}
+  .dietas-grid .hg-val{text-align:right;justify-self:end;}
+  .dia-inline-detalle:not(:empty){padding:10px 0 2px;}
   .parse-summary th{text-align:left;color:var(--dim);font-size:10px;text-transform:uppercase;
     padding:4px 6px;border-bottom:1px solid var(--line);}
   .parse-summary td{padding:4px 6px;border-bottom:1px solid rgba(28,44,71,.4);}
@@ -610,6 +619,13 @@
         <div class="value" id="nomTotal" style="font-size:24px;">0 <small>€</small></div>
       </div>
     </div>
+    <button class="btn-secondary" style="margin-top:14px;" onclick="exportarNominaPDF(event)">Exportar Nómina a PDF</button>
+    <div id="nomPdfPreviewBox" style="display:none;margin-top:14px;">
+      <img id="nomPdfPreviewFrame" style="width:100%;border:1px solid var(--line);border-radius:8px;background:#0c1626;display:block;">
+      <div style="margin-top:10px;">
+        <a id="nomPdfLinkWrap" href="#" download style="display:inline-block;padding:10px 16px;background:var(--amber);color:#1a1200;border-radius:8px;font-weight:700;text-decoration:none;">Descargar el PDF (toca aquí)</a>
+      </div>
+    </div>
     <div class="note warn" style="margin-top:14px;">
       <b>Solo devengos.</b> Esta pestaña reproduce el formato y los códigos de tu nómina real (DEVENGOS). El Plan
       de Jubilación (PPE) y la retribución en especie (billetes, seguro, comida) ya se incluyen si los rellenas
@@ -950,9 +966,10 @@ function calcular(){
   const comidaCrew = parseFloat(document.getElementById('comidaCrew').value)||0;
   const retribucionEspecie = billetesFree + seguroConvenio + comidaCrew;
 
+  // El total bruto es solo la suma de conceptos fijos + variables (devengos). El PPE y la
+  // retribución en especie se muestran en el desglose y en Nómina Real, pero no entran aquí.
   const total = sb+pv+pt+at+antiguedad+payHoras1+payHoras2+payActLab+payImaginarias+
-                payNocturnas+payReservas+dietasTotal+primaResp+gratifExtra+objetivos+payActExtra+
-                ppeMensual+retribucionEspecie;
+                payNocturnas+payReservas+dietasTotal+primaResp+gratifExtra+objetivos+payActExtra;
 
   document.getElementById('totalValue').innerHTML = fmt(total) + ' <small>€ brutos</small>';
 
@@ -977,13 +994,13 @@ function calcular(){
     ["Plus de transporte","(×12)"+(diasExcedenciaMesActual>0?" · descontado por excedencia":""), pt],
     ["Asistencia técnica","(×12)"+(diasExcedenciaMesActual>0?" · descontado por excedencia":""), at],
     ["Antigüedad ad personam","", antiguedad],
-    ["Horas 1 ("+fmt(umbral55)+"–"+fmt(umbral75)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), horas1.toFixed(1)+" h × "+fmt(rHv1)+" €", payHoras1],
-    ["Horas 2 (>"+fmt(umbral75)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), horas2.toFixed(1)+" h × "+fmt(rHv2)+" €", payHoras2],
-    ["Prima actividad (>"+fmt(umbral160)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), Math.max(horasActividad-umbral160,0).toFixed(1)+" h × "+fmt(rPact)+" €", payActLab],
-    ["Prima nocturnidad", horasNocturnas.toFixed(1)+" h × "+fmt(rHnoc)+" €", payNocturnas],
+    ["Horas 1 ("+fmt(umbral55)+"–"+fmt(umbral75)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), horas1.toFixed(2)+" h × "+fmt(rHv1)+" €", payHoras1],
+    ["Horas 2 (>"+fmt(umbral75)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), horas2.toFixed(2)+" h × "+fmt(rHv2)+" €", payHoras2],
+    ["Prima actividad (>"+fmt(umbral160)+"h)"+(proporcionTrabajada<1?" · prorrateado":""), Math.max(horasActividad-umbral160,0).toFixed(2)+" h × "+fmt(rPact)+" €", payActLab],
+    ["Prima nocturnidad", horasNocturnas.toFixed(2)+" h × "+fmt(rHnoc)+" €", payNocturnas],
     ["Imaginarias","(prima fija) "+numImaginarias+" × "+fmt(rPimag)+" €", payImaginarias],
 
-    ["Actividad extraordinaria","MAD>21:00 UTC / BOG / PTY — "+horasActExtra.toFixed(1)+" h × "+fmt(rPact)+" €", payActExtra],
+    ["Actividad extraordinaria","MAD>21:00 UTC / BOG / PTY — "+horasActExtra.toFixed(2)+" h × "+fmt(rPact)+" €", payActExtra],
     ["Reservas", numReservas+" × "+fmt(rPres)+" €", payReservas],
     ["Dietas (Anexo III)", "de las cuales "+fmt(dietasExento)+" € exentas Hacienda y "+fmt(dietasSujeto)+" € sujetas", dietasTotal],
     ["Prima responsabilidad comandante","(×12)", primaResp],
@@ -1084,6 +1101,13 @@ function renderNominaReal(d){
 
   document.getElementById('nomBody').innerHTML = html;
   document.getElementById('nomTotal').innerHTML = fmt(d.total) + ' <small>€</small>';
+
+  window.ultimaNominaTabla = {
+    trabajador: document.getElementById('nomTrabajador').textContent,
+    categoria: document.getElementById('nomCategoria').textContent,
+    periodo: document.getElementById('nomPeriodo').textContent,
+    devengos, especie, pensiones, total: d.total,
+  };
 }
 
 // ================= CAMBIOS (mensajes de última hora) =================
@@ -1463,12 +1487,12 @@ function procesarProgramacion(){
   });
 
   // Rellenar campos del formulario
-  document.getElementById('horasVuelo').value = horasVuelo.toFixed(1);
-  document.getElementById('horasActividad').value = horasActividad.toFixed(1);
-  document.getElementById('horasNocturnas').value = horasNocturnas.toFixed(1);
+  document.getElementById('horasVuelo').value = horasVuelo.toFixed(2);
+  document.getElementById('horasActividad').value = horasActividad.toFixed(2);
+  document.getElementById('horasNocturnas').value = horasNocturnas.toFixed(2);
   document.getElementById('numImaginarias').value = imaginarias;
   document.getElementById('diasNoTrabajados').value = Math.round(diasNoTrabajados);
-  document.getElementById('horasActExtra').value = horasActExtra.toFixed(1);
+  document.getElementById('horasActExtra').value = horasActExtra.toFixed(2);
   Object.keys(dietaCounts).forEach(idx=>{
     const el = document.getElementById('dieta_'+idx);
     if(el) el.value = dietaCounts[idx];
@@ -1477,8 +1501,8 @@ function procesarProgramacion(){
   // Resumen visual
   const labelsIdx = {0:'DNC',1:'DNP',3:'DIC',8:'DLC',9:'DLP',10:'DLT'};
   let dietaRowsHtml = Object.keys(dietaCounts).filter(i=>dietaCounts[i]>0)
-    .map(i=>`<tr><td>${labelsIdx[i]}</td><td>${dietaCounts[i]}</td></tr>`).join('');
-  if(!dietaRowsHtml) dietaRowsHtml = '<tr><td colspan="2">Sin dietas detectadas</td></tr>';
+    .map(i=>`<div>${labelsIdx[i]}</div><div class="hg-val mono">${dietaCounts[i]}</div>`).join('');
+  if(!dietaRowsHtml) dietaRowsHtml = '<div style="grid-column:1/-1;color:var(--dim);">Sin dietas detectadas</div>';
 
   let cambiosHtml = '';
   if(affectedDates.length>0){
@@ -1529,20 +1553,21 @@ function procesarProgramacion(){
     <span style="color:var(--cyan);">Calendario, semana y mapa generados en sus pestañas.</span>
     ${mesNominaTexto}
     ${cambiosHtml}
-    <table class="resumen-horas">
-      <tr><th>Concepto</th><th>H:MM</th><th>Decimal</th></tr>
-      <tr><td>HORAS BLOCK</td><td class="mono">${fmtHM(horasVuelo)}</td><td class="mono">${fmt(horasVuelo)}</td></tr>
-      <tr><td>HORAS ACT. ORD.</td><td class="mono">${fmtHM(horasActividad)}</td><td class="mono">${fmt(horasActividad)}</td></tr>
-      <tr><td>HORAS ACT. EXT.</td><td class="mono">${fmtHM(horasActExtra)}</td><td class="mono">${fmt(horasActExtra)}</td></tr>
-      <tr><td>HORAS NOCTURNAS</td><td class="mono">${fmtHM(horasNocturnas)}</td><td class="mono">${fmt(horasNocturnas)}</td></tr>
-      <tr><td>IMAGINARIAS</td><td class="mono" colspan="2">${imaginarias}</td></tr>
-      <tr><td>RESERVAS</td><td class="mono" colspan="2">${numReservasActual}</td></tr>
-    </table>
-    ${vuelosExtraordinarios.length?`<div style="font-size:11px;color:var(--dim);margin:6px 0 10px;">Actividad extraordinaria: ${vuelosExtraordinarios.join('; ')}</div>`:''}
-    <table>
-      <tr><th>Dieta</th><th>Días</th></tr>
-      ${dietaRowsHtml}
-    </table>
+    <div class="resumen-flex">
+      <div class="horas-grid">
+        <div class="hg-h">Concepto</div><div class="hg-h hg-val">H:MM</div><div class="hg-h hg-val">Dec.</div>
+        <div class="hg-label">HORAS BLOCK</div><div class="hg-val mono">${fmtHM(horasVuelo)}</div><div class="hg-val mono">${fmt(horasVuelo)}</div>
+        <div class="hg-label">HORAS ACT. ORD.</div><div class="hg-val mono">${fmtHM(horasActividad)}</div><div class="hg-val mono">${fmt(horasActividad)}</div>
+        <div class="hg-label">HORAS ACT. EXT.</div><div class="hg-val mono">${fmtHM(horasActExtra)}</div><div class="hg-val mono">${fmt(horasActExtra)}</div>
+        <div class="hg-label">HORAS NOCTURNAS</div><div class="hg-val mono">${fmtHM(horasNocturnas)}</div><div class="hg-val mono">${fmt(horasNocturnas)}</div>
+        <div class="hg-label">IMAGINARIAS</div><div class="hg-val mono" style="grid-column:span 2;">${imaginarias}</div>
+        <div class="hg-label">RESERVAS</div><div class="hg-val mono" style="grid-column:span 2;">${numReservasActual}</div>
+      </div>
+      <div class="dietas-grid">
+        <div class="hg-h">Dieta</div><div class="hg-h hg-val">Días</div>
+        ${dietaRowsHtml}
+      </div>
+    </div>
     ${warnRutas}
   `;
 
@@ -1552,13 +1577,16 @@ function procesarProgramacion(){
 
 // ================= TABS =================
 function switchTab(name){
+  // Si ya estábamos en esa pestaña (p. ej. mostrarDia() llamando switchTab('prog') desde dentro
+  // de la propia pestaña Programación), no hay cambio real de pestaña: no hace falta subir arriba.
+  const yaActivo = document.getElementById('tab'+(name==='prog'?'Prog':name==='calc'?'Calc':'Nom')).classList.contains('active');
   document.getElementById('tabProg').classList.toggle('active', name==='prog');
   document.getElementById('tabCalc').classList.toggle('active', name==='calc');
   document.getElementById('tabNom').classList.toggle('active', name==='nom');
   document.getElementById('btmBtnProg').classList.toggle('active', name==='prog');
   document.getElementById('btmBtnCalc').classList.toggle('active', name==='calc');
   document.getElementById('btmBtnNom').classList.toggle('active', name==='nom');
-  window.scrollTo({top:0, behavior:'smooth'});
+  if(!yaActivo) window.scrollTo({top:0, behavior:'smooth'});
 }
 
 function toggleSwitchPanel(panelId, rowEl){
@@ -1675,9 +1703,35 @@ function renderStatsBar(rows, cal, resumen){
 // ================= HORA DE FIRMA =================
 // Para vuelos que salen de Madrid: salida menos 1h30. Para vuelos de vuelta (no salen de MAD),
 // no se calcula firma — pendiente de confirmar la regla exacta.
+// ================= AJUSTE MANUAL DE FIRMA (localStorage) =================
+const AJUSTES_FIRMA_KEY = 'nomina-aea-ajustes-firma';
+function leerAjustesFirma(){
+  try{ return JSON.parse(localStorage.getItem(AJUSTES_FIRMA_KEY) || '{}'); }catch(e){ return {}; }
+}
+function guardarAjusteFirma(key, firmaISO){
+  try{
+    const ajustes = leerAjustesFirma();
+    ajustes[key] = firmaISO;
+    localStorage.setItem(AJUSTES_FIRMA_KEY, JSON.stringify(ajustes));
+  }catch(e){ console.warn('No se pudo guardar el ajuste de firma:', e); }
+}
+function borrarAjusteFirma(key){
+  try{
+    const ajustes = leerAjustesFirma();
+    delete ajustes[key];
+    localStorage.setItem(AJUSTES_FIRMA_KEY, JSON.stringify(ajustes));
+  }catch(e){}
+}
+// La firma SIEMPRE se calcula sobre la hora PROGRAMADA (nunca sobre un ajuste de hora real —
+// la firma no cambia si el vuelo se retrasa). 1h30 si sale de MAD, 1h15 si sale de fuera. Si el
+// usuario la ha editado a mano, esa edición manda sobre el cálculo.
 function calcularFirma(row){
-  if(row.dep !== BASE) return null;
-  return new Date(row.fini.getTime() - 90*60000);
+  const ajustes = leerAjustesFirma();
+  const key = vueloKey(row);
+  if(ajustes[key]) return new Date(ajustes[key]);
+  const baseProgramada = row.finiProgramado || row.fini;
+  const margenMin = row.dep===BASE ? 90 : 75;
+  return new Date(baseProgramada.getTime() - margenMin*60000);
 }
 function fmtHora(d){ return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'); }
 // Formatea horas decimales como "H:MM" (admite negativos).
@@ -1696,6 +1750,20 @@ const TYPE_META_LARGO = {
   LI:'Libre', LN:'Libre negociable', SA:'Sin actividad', IM:'Imaginaria',
   VA:'Vacaciones', EX:'Excedencia', RM:'Reconocimiento médico', OC:'Curso online', SR:'Simulador',
 };
+// Días naturales (UTC) que ocupa una fila. Si termina EXACTAMENTE a medianoche (caso típico de
+// LI/LN/EX/VA modelados como 00:00→00:00 del día siguiente), ese último día no cuenta como
+// ocupado — el evento no tiene actividad real ahí, solo toca el límite. Evita que un día libre
+// "tape" lo que de verdad ocurre al día siguiente (p. ej. una imaginaria).
+function diasQueOcupaRow(r){
+  const tocaExactoMedianoche = r.ffin > r.fini && r.ffin.getUTCHours()===0 && r.ffin.getUTCMinutes()===0;
+  const finEfectivo = tocaExactoMedianoche ? new Date(r.ffin.getTime()-1) : r.ffin;
+  let d = new Date(Date.UTC(r.fini.getUTCFullYear(),r.fini.getUTCMonth(),r.fini.getUTCDate()));
+  const endD = new Date(Date.UTC(finEfectivo.getUTCFullYear(),finEfectivo.getUTCMonth(),finEfectivo.getUTCDate()));
+  const dias = [];
+  while(d<=endD){ dias.push(d.toISOString().slice(0,10)); d = new Date(d.getTime()+86400000); }
+  return dias;
+}
+
 function renderSemana(rows, cal){
   const panel = document.getElementById('semanaPanel');
   if(!rows.length){ panel.innerHTML = '<div style="color:var(--dim);font-size:13px;">Sin datos.</div>'; return; }
@@ -1704,13 +1772,7 @@ function renderSemana(rows, cal){
   const porDia = {};
   function addDia(key, item){ if(!porDia[key]) porDia[key]=[]; porDia[key].push(item); }
   rows.forEach(r=>{
-    let d = new Date(Date.UTC(r.fini.getUTCFullYear(),r.fini.getUTCMonth(),r.fini.getUTCDate()));
-    const endD = new Date(Date.UTC(r.ffin.getUTCFullYear(),r.ffin.getUTCMonth(),r.ffin.getUTCDate()));
-    while(d<=endD){
-      const key = d.toISOString().slice(0,10);
-      addDia(key, r);
-      d = new Date(d.getTime()+86400000);
-    }
+    diasQueOcupaRow(r).forEach(key=>addDia(key, r));
   });
 
   const dias = Object.keys(porDia).sort();
@@ -1744,39 +1806,59 @@ function renderSemana(rows, cal){
 }
 
 // ================= VISTA DÍA =================
-function mostrarDia(dateKey){
-  switchTab('prog');
+// Construye el HTML del detalle de un día (cabecera + tarjetas de cada servicio). Reutilizable
+// tanto para el panel compartido (Mes/Semana/Mapa) como para abrir en línea dentro de la propia
+// lista de la vista Día. onCerrarJs es el onclick del botón "Cerrar" (varía según dónde se use).
+function construirHtmlDetalleDia(dateKey, onCerrarJs, contId){
+  const cid = contId || '';
   const rows = window.ultimoRows || [];
-  const panel = document.getElementById('detalleDiaSlot');
   const fecha = new Date(dateKey+'T00:00:00Z');
   const nombreDia = DIAS_SEMANA[(fecha.getUTCDay()+6)%7];
 
-  const items = rows.filter(r=>{
-    let d = new Date(Date.UTC(r.fini.getUTCFullYear(),r.fini.getUTCMonth(),r.fini.getUTCDate()));
-    const endD = new Date(Date.UTC(r.ffin.getUTCFullYear(),r.ffin.getUTCMonth(),r.ffin.getUTCDate()));
-    while(d<=endD){ if(d.toISOString().slice(0,10)===dateKey) return true; d=new Date(d.getTime()+86400000); }
-    return false;
-  });
+  const items = rows.filter(r=>diasQueOcupaRow(r).includes(dateKey));
 
   const cabecera = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
     <div class="mono" style="font-size:11px;color:var(--amber);letter-spacing:.1em;">${nombreDia.toUpperCase()} ${fmtFecha(fecha)}/${fecha.getUTCFullYear()}</div>
-    <button class="btn-secondary" style="width:auto;margin:0;padding:4px 10px;font-size:11px;" onclick="cerrarDetalleDia()">Cerrar ✕</button>
+    <button class="btn-secondary" style="width:auto;margin:0;padding:4px 10px;font-size:11px;" onclick="${onCerrarJs}">Cerrar ✕</button>
   </div>`;
 
   if(items.length===0){
-    panel.innerHTML = `<div class="panel" style="border-color:var(--amber);">${cabecera}<div style="color:var(--dim);">Sin actividad registrada ese día.</div></div>`;
-    panel.scrollIntoView({behavior:'smooth', block:'start'});
-    return;
+    return `<div class="panel" style="border-color:var(--amber);">${cabecera}<div style="color:var(--dim);">Sin actividad registrada ese día.</div></div>`;
   }
 
   let html = `<div class="panel" style="border-color:var(--amber);">${cabecera}`;
 
   const dietasPorDia = window.ultimoDietasPorDia || {};
 
+  // Ida/vuelta el mismo día (p. ej. MAD→BCN→MAD): la actividad ordinaria es UN único periodo
+  // (firma de la ida hasta llegada de la vuelta +30min) — se muestra solo en el 2º tramo, no en
+  // los dos por separado.
+  const actOrdGrupo = {};      // índice del 2º tramo -> horas combinadas
+  const actOrdSuprimido = new Set(); // índice del 1er tramo -> no mostrar su ACT ORD individual
+  const firmaGrupo = {};       // índice del 2º tramo -> firma de la IDA (misma firma para ambos)
+  items.forEach((a,i)=>{
+    if((a.codSer==='CO'||a.codSer==='CR') && a.dep===BASE){
+      for(let j=i+1;j<items.length;j++){
+        const b = items[j];
+        if((b.codSer==='CO'||b.codSer==='CR') && b.dep===a.arr && b.arr===BASE){
+          const firmaA = calcularFirma(a);
+          actOrdGrupo[j] = (new Date(b.ffin.getTime()+30*60000) - firmaA)/3600000;
+          actOrdSuprimido.add(i);
+          firmaGrupo[j] = firmaA;
+          break;
+        }
+      }
+    }
+  });
+
   items.forEach((r,idx)=>{
     if(r.codSer==='CO'||r.codSer==='CR'){
-      const firma = calcularFirma(r);
+      // Si es la vuelta de una ida/vuelta el mismo día, no hay firma propia: es el mismo
+      // servicio continuo, con la firma de la ida.
+      const esVueltaMismoDia = firmaGrupo[idx]!==undefined;
+      const firma = esVueltaMismoDia ? firmaGrupo[idx] : calcularFirma(r);
       const key = vueloKey(r);
+      const firmaEsManual = !!leerAjustesFirma()[key];
       const inputId = 'ajuste_'+idx+'_'+key.replace(/[^a-zA-Z0-9]/g,'_');
 
       // Hora bloque: MÁXIMO(perfil, real) — si hay ajuste real y su bloque es mayor que el perfil,
@@ -1787,9 +1869,12 @@ function mostrarDia(dateKey){
       if(perfil===undefined) perfil = Math.max(durHBloque-1.25,0);
       const horaBloque = r.ajustado ? Math.max(perfil, durHBloque) : perfil;
 
-      // Actividad ordinaria de este tramo (art. 45, margen de firma/calzos)
+      // Actividad ordinaria de este tramo (art. 45, margen de firma/calzos) — salvo que sea
+      // parte de una ida/vuelta el mismo día, donde se agrupa (ver actOrdGrupo/actOrdSuprimido).
       const ext = extenderServicio(r);
-      const actOrd = (ext.fin-ext.inicio)/3600000;
+      const actOrdIndividual = (ext.fin-ext.inicio)/3600000;
+      const actOrd = actOrdGrupo[idx]!==undefined ? actOrdGrupo[idx] : actOrdIndividual;
+      const actOrdOculto = actOrdSuprimido.has(idx);
 
       // Actividad extraordinaria (si este vuelo forma parte de un viaje MAD>21:00/BOG/PTY)
       const actExt = r.horasActExtra;
@@ -1803,16 +1888,22 @@ function mostrarDia(dateKey){
       const dietaDia = dietasPorDia[diaLocalDeEsteVuelo];
 
       html += `<div style="border:1px solid #2a5a52;background:#0e2422;border-radius:12px;padding:16px;margin:10px 0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <span class="mono" style="font-size:17px;font-weight:700;color:var(--cyan);">${r.dep} <small style="color:var(--dim);font-weight:400;font-size:11px;">(${fmtHora(r.fini)}z)</small></span>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+          <span class="mono" style="font-size:16px;font-weight:700;color:var(--cyan);">${r.dep} <small style="color:var(--dim);font-weight:400;font-size:11px;">(${fmtHora(r.fini)}z)</small> &#8594; ${r.arr} <small style="color:var(--dim);font-weight:400;font-size:11px;">(${fmtHora(r.ffin)}z)</small></span>
           <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${r.ajustado?'rgba(107,255,176,.15)':'rgba(125,144,172,.15)'};color:${r.ajustado?'var(--green)':'var(--dim)'};">${r.ajustado?'REAL':'ESTIMADO'}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <span class="mono" style="font-size:17px;font-weight:700;color:var(--cyan);">&#8594; ${r.arr} <small style="color:var(--dim);font-weight:400;font-size:11px;">(${fmtHora(r.ffin)}z)</small></span>
-        </div>
-        ${firma?`<div style="font-size:11px;color:#ffc966;margin-bottom:8px;">
-          Hora firma: <span class="mono" style="font-weight:700;">${fmtHora(firma)}z</span> &nbsp;/&nbsp; <span class="mono" style="font-weight:700;">${fmtHoraLocal(firma)} LT</span>
-        </div>`:''}
+        ${esVueltaMismoDia ? '' : `<div style="border-top:1px solid #1c3833;padding-top:10px;margin-bottom:10px;">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:6px;">
+            Hora firma (fija, sobre el horario programado — ${fmtHoraLocal(firma)} LT)${firmaEsManual?' <span style="color:var(--green);">· editada a mano</span>':''}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="time" id="${inputId}_firma" value="${fmtHora(firma)}">
+            <button class="btn-secondary" style="width:auto;margin:0;padding:8px 10px;font-size:11px;"
+              onclick="guardarFirmaDesdeUI('${key}','${dateKey}','${inputId}','${cid}')">Guardar firma</button>
+            ${firmaEsManual?`<button class="btn-secondary" style="width:auto;margin:0;padding:8px 10px;font-size:11px;color:var(--red);"
+              onclick="quitarFirmaDesdeUI('${key}','${dateKey}','${cid}')">Quitar</button>`:''}
+          </div>
+        </div>`}
         <div style="border-top:1px solid #1c3833;padding-top:10px;margin-bottom:10px;">
           <div style="font-size:10px;color:var(--dim);margin-bottom:6px;">Hora real (UTC) — si difiere de la programada</div>
           <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;">
@@ -1827,18 +1918,34 @@ function mostrarDia(dateKey){
           </div>
           <div style="display:flex;gap:8px;">
             <button class="btn-secondary" style="width:auto;margin:0;padding:8px 10px;font-size:11px;"
-              onclick="guardarAjusteDesdeUI('${key}','${dateKey}','${inputId}')">Guardar real</button>
+              onclick="guardarAjusteDesdeUI('${key}','${dateKey}','${inputId}','${cid}')">Guardar real</button>
             ${r.ajustado?`<button class="btn-secondary" style="width:auto;margin:0;padding:8px 10px;font-size:11px;color:var(--red);"
-              onclick="quitarAjusteDesdeUI('${key}','${dateKey}')">Quitar ajuste</button>`:''}
+              onclick="quitarAjusteDesdeUI('${key}','${dateKey}','${cid}')">Quitar ajuste</button>`:''}
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-top:1px solid #1c3833;padding-top:10px;margin-bottom:8px;">
           <div><div style="font-size:9px;color:var(--dim);">HORA BLOQUE</div><span class="mono" style="font-size:14px;font-weight:700;">${fmtHM(horaBloque)}</span></div>
-          <div><div style="font-size:9px;color:var(--dim);">ACT. ORD.</div><span class="mono" style="font-size:14px;font-weight:700;">${fmtHM(actOrd)}</span></div>
+          <div><div style="font-size:9px;color:var(--dim);">ACT. ORD.</div><span class="mono" style="font-size:14px;font-weight:700;color:${actOrdOculto?'var(--dim)':'inherit'};">${actOrdOculto?'ver vuelta':fmtHM(actOrd)}</span></div>
           <div><div style="font-size:9px;color:var(--dim);">ACT. EXT.</div><span class="mono" style="font-size:14px;font-weight:700;color:${actExt?'var(--amber)':'var(--dim)'};">${actExt?fmtHM(actExt):'—'}</span></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <div><div style="font-size:9px;color:var(--dim);">NOC.</div><span class="mono" style="font-size:14px;font-weight:700;">${fmtHM(noc)}</span></div>
+          <div><div style="font-size:9px;color:var(--dim);">DIETA</div><span class="mono" style="font-size:14px;font-weight:700;color:var(--cyan);">${dietaDia?dietaDia.codigo+(dietaDia.cantidad!==1?' ×'+dietaDia.cantidad:''):'—'}</span></div>
+        </div>
+      </div>`;
+    } else if(r.codSer==='IM'){
+      // Art. 59: la imaginaria devenga 12h fijas de actividad ordinaria, sin horas de vuelo,
+      // sin actividad extraordinaria y sin nocturnidad (ya confirmado).
+      const diaLocalIM = diaLocalMadrid(r.fini);
+      const dietaDia = dietasPorDia[diaLocalIM];
+      html += `<div style="border:1px solid #3a3620;background:#241f0e;border-radius:12px;padding:16px;margin:10px 0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span class="mono" style="font-size:17px;font-weight:700;color:var(--amber);">Imaginaria</span>
+          <span class="mono" style="font-size:11px;color:var(--dim);">${fmtHora(r.fini)}z &#8594; ${fmtHora(r.ffin)}z</span>
+        </div>
+        <div style="font-size:11px;color:var(--dim);margin-bottom:10px;">Art. 59 — 12h fijas de actividad ordinaria "dentro de mínimos", no genera horas de vuelo ni nocturnidad.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><div style="font-size:9px;color:var(--dim);">ACT. ORD.</div><span class="mono" style="font-size:14px;font-weight:700;">12:00</span></div>
           <div><div style="font-size:9px;color:var(--dim);">DIETA</div><span class="mono" style="font-size:14px;font-weight:700;color:var(--cyan);">${dietaDia?dietaDia.codigo+(dietaDia.cantidad!==1?' ×'+dietaDia.cantidad:''):'—'}</span></div>
         </div>
       </div>`;
@@ -1848,11 +1955,44 @@ function mostrarDia(dateKey){
     }
   });
   html += `</div>`;
-  panel.innerHTML = html;
-  panel.scrollIntoView({behavior:'smooth', block:'start'});
+  return html;
+}
+
+// Panel compartido (arriba del todo de Programación) — usado desde Mes, Semana y Mapa, donde no
+// hay una fila concreta a la que anclar el detalle.
+function mostrarDia(dateKey, sinScroll){
+  switchTab('prog');
+  const panel = document.getElementById('detalleDiaSlot');
+  panel.innerHTML = construirHtmlDetalleDia(dateKey, 'cerrarDetalleDia()');
+  if(!sinScroll) panel.scrollIntoView({behavior:'smooth', block:'start'});
 }
 function cerrarDetalleDia(){
   document.getElementById('detalleDiaSlot').innerHTML = '';
+}
+
+// Vista Día (agenda): el detalle se abre EN LÍNEA justo debajo de la fila tocada, sin mover el
+// scroll — el contenedor ya existe (vacío) justo después de cada fila de la lista.
+function toggleDiaInline(dateKey, containerId){
+  const cont = document.getElementById(containerId);
+  if(!cont) return;
+  const abierto = cont.innerHTML.trim() !== '';
+  // Cerrar cualquier otro día abierto en la lista, solo uno a la vez.
+  document.querySelectorAll('.dia-inline-detalle').forEach(el=>{ if(el.id!==containerId) el.innerHTML=''; });
+  cont.innerHTML = abierto ? '' : construirHtmlDetalleDia(dateKey, `cerrarDiaInline('${containerId}')`, containerId);
+}
+function cerrarDiaInline(containerId){
+  const cont = document.getElementById(containerId);
+  if(cont) cont.innerHTML = '';
+}
+// Refresca el detalle tras guardar/quitar un ajuste, en el sitio donde estaba abierto (panel
+// compartido arriba, o la fila en línea de la vista Día), sin mover el scroll en ningún caso.
+function refrescarDetalleDia(dateKey, containerId){
+  if(containerId){
+    const cont = document.getElementById(containerId);
+    if(cont) cont.innerHTML = construirHtmlDetalleDia(dateKey, `cerrarDiaInline('${containerId}')`, containerId);
+  } else {
+    mostrarDia(dateKey, true);
+  }
 }
 
 // ================= VISTA DÍA (agenda) =================
@@ -1861,14 +2001,10 @@ function renderVistaDia(rows, cal){
   if(!rows.length){ panel.innerHTML = '<div style="color:var(--dim);font-size:13px;">Sin datos.</div>'; return; }
   const porDia = {};
   rows.forEach(r=>{
-    let d = new Date(Date.UTC(r.fini.getUTCFullYear(),r.fini.getUTCMonth(),r.fini.getUTCDate()));
-    const endD = new Date(Date.UTC(r.ffin.getUTCFullYear(),r.ffin.getUTCMonth(),r.ffin.getUTCDate()));
-    while(d<=endD){
-      const key = d.toISOString().slice(0,10);
+    diasQueOcupaRow(r).forEach(key=>{
       if(!porDia[key]) porDia[key]=[];
       porDia[key].push(r);
-      d = new Date(d.getTime()+86400000);
-    }
+    });
   });
   const dias = Object.keys(porDia).sort();
   let html = '';
@@ -1876,18 +2012,24 @@ function renderVistaDia(rows, cal){
     const fecha = new Date(key+'T00:00:00Z');
     const nombreDia = DIAS_SEMANA[(fecha.getUTCDay()+6)%7];
     const items = porDia[key];
+    // Prioridad para el resumen: vuelo > imaginaria > resto (un día con "Libre" residual y una
+    // imaginaria real debe mostrar la imaginaria, no el libre).
     const vuelo = items.find(r=>r.codSer==='CO'||r.codSer==='CR');
+    const imaginaria = items.find(r=>r.codSer==='IM');
     let resumen;
     if(vuelo) resumen = `<span class="mono" style="color:var(--cyan);font-weight:700;">${vuelo.dep}&#8594;${vuelo.arr}</span>`;
+    else if(imaginaria) resumen = `<span style="color:var(--dim);">${TYPE_META_LARGO['IM']}</span>`;
     else resumen = `<span style="color:var(--dim);">${TYPE_META_LARGO[items[0].codSer]||items[0].codSer}</span>`;
-    html += `<div onclick="mostrarDia('${key}')" style="display:flex;align-items:center;justify-content:space-between;
+    const contId = 'diaInline_'+key.replace(/-/g,'');
+    html += `<div onclick="toggleDiaInline('${key}','${contId}')" style="display:flex;align-items:center;justify-content:space-between;
       padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;">
       <div style="display:flex;flex-direction:column;">
         <span class="mono" style="font-size:11px;color:var(--dim);">${nombreDia.slice(0,3).toUpperCase()} ${fmtFecha(fecha)}</span>
       </div>
       <div style="font-size:13px;">${resumen}</div>
       <span style="color:var(--dim);">&#8250;</span>
-    </div>`;
+    </div>
+    <div id="${contId}" class="dia-inline-detalle"></div>`;
   });
   panel.innerHTML = html;
 }
@@ -2084,7 +2226,7 @@ function aplicarAjustesARows(rows){
 // Lee los dos inputs de hora (HH:MM) de la tarjeta de un vuelo en la vista Día, construye las
 // fechas reales (misma fecha que la programada para la salida; la llegada cruza medianoche si
 // la hora introducida es menor que la de salida) y guarda el ajuste.
-function guardarAjusteDesdeUI(key, dateKey, inputId){
+function guardarAjusteDesdeUI(key, dateKey, inputId, containerId){
   const salVal = document.getElementById(inputId+'_sal').value;
   const lleVal = document.getElementById(inputId+'_lle').value;
   if(!salVal || !lleVal){ alert('Rellena las dos horas (salida y llegada).'); return; }
@@ -2097,12 +2239,29 @@ function guardarAjusteDesdeUI(key, dateKey, inputId){
   if(ffinReal <= finiReal) ffinReal = new Date(ffinReal.getTime()+86400000);
   guardarAjusteVuelo(key, finiReal.toISOString(), ffinReal.toISOString());
   procesarProgramacion();
-  mostrarDia(dateKey);
+  refrescarDetalleDia(dateKey, containerId);
 }
-function quitarAjusteDesdeUI(key, dateKey){
+function quitarAjusteDesdeUI(key, dateKey, containerId){
   borrarAjusteVuelo(key);
   procesarProgramacion();
-  mostrarDia(dateKey);
+  refrescarDetalleDia(dateKey, containerId);
+}
+// Firma: se guarda como hora UTC del mismo día programado del vuelo.
+function guardarFirmaDesdeUI(key, dateKey, inputId, containerId){
+  const val = document.getElementById(inputId+'_firma').value;
+  if(!val){ alert('Introduce una hora de firma.'); return; }
+  const fechaProgramada = key.split('_')[0];
+  const [y,m,d] = fechaProgramada.split('-').map(Number);
+  const [h,mi] = val.split(':').map(Number);
+  const firmaDate = new Date(Date.UTC(y,m-1,d,h,mi));
+  guardarAjusteFirma(key, firmaDate.toISOString());
+  procesarProgramacion();
+  refrescarDetalleDia(dateKey, containerId);
+}
+function quitarFirmaDesdeUI(key, dateKey, containerId){
+  borrarAjusteFirma(key);
+  procesarProgramacion();
+  refrescarDetalleDia(dateKey, containerId);
 }
 
 // ================= GENERADOR DE PDF PROPIO (sin librerías externas) =================
@@ -2336,6 +2495,148 @@ function exportarPDF(evt){
         link.href = pdfBlobUrl;
         link.download = nombreArchivo;
         document.getElementById('pdfPreviewBox').scrollIntoView({behavior:'smooth', block:'start'});
+        restaurarBoton();
+      });
+    }, 'image/jpeg', 0.92);
+  }catch(err){
+    console.error(err);
+    alert('No se ha podido generar el PDF: '+err.message);
+    restaurarBoton();
+  }
+}
+
+// ================= PDF DE LA NÓMINA (mismo generador, reutilizado) =================
+function renderNominaToCanvas(n){
+  const SCALE = 2;
+  const W = 760, pad = 28;
+  const filaH = 26, cabeceraH = 50, seccionH = 28, totalH = 56, headerBlockH = 70;
+  const nFilas = n.devengos.length + n.especie.length + n.pensiones.length;
+  const nSecciones = 1 + (n.especie.length?1:0) + (n.pensiones.length?1:0);
+  const H = pad*2 + headerBlockH + cabeceraH + nSecciones*seccionH + nFilas*filaH + totalH;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W*SCALE; canvas.height = H*SCALE;
+  canvas.style.width = W+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(SCALE, SCALE);
+  ctx.textBaseline = 'alphabetic';
+  const FONT = 'system-ui,-apple-system,Segoe UI,sans-serif';
+  const MONO = "'JetBrains Mono',ui-monospace,Menlo,monospace";
+
+  ctx.fillStyle = '#060d1a'; ctx.fillRect(0,0,W,H);
+
+  // Cabecera
+  ctx.fillStyle = '#dfe8f5';
+  ctx.font = `700 20px ${FONT}`;
+  ctx.fillText(n.trabajador, pad, pad+20);
+  ctx.fillStyle = '#7d90ac';
+  ctx.font = `400 12px ${FONT}`;
+  ctx.fillText(n.categoria, pad, pad+38);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#dfe8f5';
+  ctx.font = `700 12px ${FONT}`;
+  ctx.fillText('AIR EUROPA L.A., S.A.U.', W-pad, pad+20);
+  ctx.fillStyle = '#7d90ac';
+  ctx.font = `400 11px ${FONT}`;
+  ctx.fillText(n.periodo, W-pad, pad+38);
+  ctx.textAlign = 'left';
+  ctx.strokeStyle = '#1c2c47'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad, pad+headerBlockH-18); ctx.lineTo(W-pad, pad+headerBlockH-18); ctx.stroke();
+
+  // Cabecera de columnas
+  let y = pad+headerBlockH;
+  const colCod=pad, colConcepto=pad+55, colUnid=W-pad-220, colPrecio=W-pad-130, colDev=W-pad;
+  ctx.fillStyle = '#7d90ac';
+  ctx.font = `700 10px ${FONT}`;
+  ctx.fillText('CÓD.', colCod, y+16);
+  ctx.fillText('CONCEPTO', colConcepto, y+16);
+  ctx.textAlign='right';
+  ctx.fillText('UNID.', colUnid, y+16);
+  ctx.fillText('PRECIO', colPrecio, y+16);
+  ctx.fillText('DEVENGOS', colDev, y+16);
+  ctx.textAlign='left';
+  y += cabeceraH;
+  ctx.strokeStyle = '#1c2c47';
+  ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
+
+  function seccion(titulo){
+    ctx.fillStyle = '#ffb020';
+    ctx.font = `700 11px ${FONT}`;
+    ctx.fillText(titulo, colCod, y+20);
+    y += seccionH;
+  }
+  function fila([cod,nombre,uni,precio,val]){
+    ctx.fillStyle = '#dfe8f5';
+    ctx.font = `400 12px ${MONO}`;
+    ctx.fillText(cod, colCod, y+17);
+    ctx.font = `400 12px ${FONT}`;
+    ctx.fillText(nombre, colConcepto, y+17);
+    ctx.font = `400 11px ${MONO}`;
+    ctx.fillStyle = '#7d90ac';
+    ctx.textAlign='right';
+    ctx.fillText(uni, colUnid, y+17);
+    ctx.fillText(precio, colPrecio, y+17);
+    ctx.fillStyle = '#dfe8f5';
+    ctx.font = `700 12px ${MONO}`;
+    ctx.fillText(fmt(val)+' €', colDev, y+17);
+    ctx.textAlign='left';
+    ctx.strokeStyle = 'rgba(28,44,71,.5)';
+    ctx.beginPath(); ctx.moveTo(pad,y+filaH); ctx.lineTo(W-pad,y+filaH); ctx.stroke();
+    y += filaH;
+  }
+
+  seccion('DEVENGOS');
+  n.devengos.forEach(fila);
+  if(n.especie.length){ seccion('RETRIBUCIÓN EN ESPECIE'); n.especie.forEach(fila); }
+  if(n.pensiones.length){ seccion('PLANES DE PENSIONES'); n.pensiones.forEach(fila); }
+
+  // Total
+  y += 14;
+  ctx.strokeStyle = '#1c2c47';
+  ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
+  ctx.fillStyle = '#7d90ac';
+  ctx.font = `700 11px ${FONT}`;
+  ctx.fillText('TOTAL DEVENGOS', colCod, y+30);
+  ctx.textAlign='right';
+  ctx.fillStyle = '#ffb020';
+  ctx.font = `700 22px ${MONO}`;
+  ctx.fillText(fmt(n.total)+' €', colDev, y+32);
+  ctx.textAlign='left';
+
+  return canvas;
+}
+
+function exportarNominaPDF(evt){
+  const btn = evt ? evt.target : null;
+  const textoOriginal = btn ? btn.textContent : '';
+  if(btn){ btn.textContent = 'Generando...'; btn.disabled = true; }
+  const restaurarBoton = ()=>{ if(btn){ btn.textContent = textoOriginal; btn.disabled = false; } };
+
+  const n = window.ultimaNominaTabla;
+  if(!n){
+    alert('Primero calcula una nómina en la pestaña Calculadora.');
+    restaurarBoton();
+    return;
+  }
+
+  try{
+    const canvas = renderNominaToCanvas(n);
+    canvas.toBlob(blob=>{
+      if(!blob){ alert('No se ha podido generar la imagen de la nómina.'); restaurarBoton(); return; }
+      blob.arrayBuffer().then(buf=>{
+        const jpegBytes = new Uint8Array(buf);
+        const pdfBytes = buildPdfFromJpeg(jpegBytes, canvas.width, canvas.height);
+        const pdfBlob = new Blob([pdfBytes], {type:'application/pdf'});
+        const nombreArchivo = 'nomina-'+n.periodo.replace(/[^a-zA-Z0-9]+/g,'-')+'.pdf';
+        const pdfBlobUrl = URL.createObjectURL(pdfBlob);
+        const imgBlobUrl = URL.createObjectURL(blob);
+
+        document.getElementById('nomPdfPreviewBox').style.display = 'block';
+        document.getElementById('nomPdfPreviewFrame').src = imgBlobUrl;
+        const link = document.getElementById('nomPdfLinkWrap');
+        link.href = pdfBlobUrl;
+        link.download = nombreArchivo;
+        document.getElementById('nomPdfPreviewBox').scrollIntoView({behavior:'smooth', block:'start'});
         restaurarBoton();
       });
     }, 'image/jpeg', 0.92);
