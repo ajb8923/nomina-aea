@@ -540,6 +540,10 @@
       <label>Plan de Jubilación / PPE (€, aportación mensual de la empresa según tu nivel)</label>
       <input type="number" id="ppeMensual" value="0" step="0.01">
     </div>
+    <div class="field">
+      <label>Pérdida de Licencia (€, 8301 — importe manual, consulta tu nómina anterior)</label>
+      <input type="number" id="perdidaLicencia" value="0" step="0.01">
+    </div>
     <div class="grid3">
       <div class="field">
         <label>Valoración Billetes Free (€)</label>
@@ -932,8 +936,11 @@ function calcular(){
   const umbral75 = 75 * proporcionTrabajada;
   const umbral160 = 160 * proporcionTrabajada;
 
-  const horas1 = Math.min(Math.max(horasVuelo-umbral55,0), umbral75-umbral55);
-  const horas2 = Math.max(horasVuelo-umbral75,0);
+  // Redondeadas a 2 decimales ANTES de multiplicar por la tarifa, para que las horas mostradas
+  // multiplicadas por la tarifa mostrada cuadren exactamente con el importe mostrado (como en
+  // la nómina real), en vez de arrastrar más precisión interna que luego no se ve.
+  const horas1 = Math.round(Math.min(Math.max(horasVuelo-umbral55,0), umbral75-umbral55)*100)/100;
+  const horas2 = Math.round(Math.max(horasVuelo-umbral75,0)*100)/100;
   const payHoras1 = horas1*rHv1;
   const payHoras2 = horas2*rHv2;
   const payActLab = Math.max(horasActividad-umbral160,0)*rPact;
@@ -961,15 +968,17 @@ function calcular(){
   const payActExtra = horasActExtra * rPact;
 
   const ppeMensual = parseFloat(document.getElementById('ppeMensual').value)||0;
+  const perdidaLicencia = parseFloat(document.getElementById('perdidaLicencia').value)||0;
   const billetesFree = parseFloat(document.getElementById('billetesFree').value)||0;
   const seguroConvenio = parseFloat(document.getElementById('seguroConvenio').value)||0;
   const comidaCrew = parseFloat(document.getElementById('comidaCrew').value)||0;
   const retribucionEspecie = billetesFree + seguroConvenio + comidaCrew;
 
-  // El total bruto es solo la suma de conceptos fijos + variables (devengos). El PPE y la
-  // retribución en especie se muestran en el desglose y en Nómina Real, pero no entran aquí.
+  // El total bruto es la suma de conceptos fijos + variables (devengos), incluida la Pérdida de
+  // Licencia (8301, es un devengo real). El PPE y la retribución en especie no entran aquí — se
+  // muestran en el desglose y en Nómina Real, pero son conceptos aparte.
   const total = sb+pv+pt+at+antiguedad+payHoras1+payHoras2+payActLab+payImaginarias+
-                payNocturnas+payReservas+dietasTotal+primaResp+gratifExtra+objetivos+payActExtra;
+                payNocturnas+payReservas+dietasTotal+primaResp+gratifExtra+objetivos+payActExtra+perdidaLicencia;
 
   document.getElementById('totalValue').innerHTML = fmt(total) + ' <small>€ brutos</small>';
 
@@ -1006,6 +1015,7 @@ function calcular(){
     ["Prima responsabilidad comandante","(×12)", primaResp],
     ["Paga extra (art. 70)", esPagaExtra?"junio/diciembre":"—", gratifExtra],
     ["Prima por objetivos (art. 77)", "solo mayo", objetivos],
+    ["Pérdida de Licencia (8301)","", perdidaLicencia],
     ["Plan de Jubilación (PPE)", "según nivel "+nivelCod, ppeMensual],
     ["Valoración Billetes Free","", billetesFree],
     ["Seguro Convenio","", seguroConvenio],
@@ -1034,7 +1044,7 @@ function calcular(){
     numReservas, rPres, payReservas,
     dietasExento, dietasSujeto,
     primaResp, gratifExtra, objetivos, esPagaExtra,
-    ppeMensual, billetesFree, seguroConvenio, comidaCrew,
+    ppeMensual, perdidaLicencia, billetesFree, seguroConvenio, comidaCrew,
     total
   });
 
@@ -1063,6 +1073,9 @@ function renderNominaReal(d){
     ['8148','Plus de Transporte','30,00','', d.pt],
     ['8172','Prima Razón Viaje','30,00','', d.pv],
     ['9A67','Plus Asistencia Técnica','30,00','', d.at],
+  );
+  if(d.perdidaLicencia>0) devengos.push(['8301','Pérdida de Licencia','—','', d.perdidaLicencia]);
+  devengos.push(
     ['8222','Plus Horas Vuelo 1', d.horas1.toFixed(2), fmt(d.rHv1), d.payHoras1],
     ['8223','Plus Horas Vuelo 2', d.horas2.toFixed(2), fmt(d.rHv2), d.payHoras2],
     ['8225','Plus Imaginaria', String(d.numImaginarias), fmt(d.rPimag), d.payImaginarias],
@@ -1206,10 +1219,11 @@ function finDiaLocalEnUTC(utcDate){
 function fmtHoraLocal(utcDate){ return fmtHora(aHoraLocalMadrid(utcDate)); }
 
 function extenderServicio(r){
-  const margenAntesMin = (r.dep===BASE) ? 90 : 75; // 1h30 en MAD, 1h15 fuera (confirmado)
+  // El inicio SIEMPRE es la firma (fija sobre el horario programado, o editada a mano) —
+  // nunca se recalcula desde la hora real de salida, igual que calcularFirma().
   const margenDespuesMin = 30;
   return {
-    inicio: new Date(r.fini.getTime() - margenAntesMin*60000),
+    inicio: calcularFirma(r),
     fin: new Date(r.ffin.getTime() + margenDespuesMin*60000),
   };
 }
@@ -1889,7 +1903,7 @@ function construirHtmlDetalleDia(dateKey, onCerrarJs, contId){
 
       html += `<div style="border:1px solid #2a5a52;background:#0e2422;border-radius:12px;padding:16px;margin:10px 0;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
-          <span class="mono" style="font-size:16px;font-weight:700;color:var(--cyan);">${r.dep} <small style="color:var(--dim);font-weight:400;font-size:11px;">(${fmtHora(r.fini)}z)</small> &#8594; ${r.arr} <small style="color:var(--dim);font-weight:400;font-size:11px;">(${fmtHora(r.ffin)}z)</small></span>
+          <span class="mono" style="font-size:16px;font-weight:700;color:var(--cyan);">${r.dep} <small style="color:var(--dim);font-weight:400;font-size:11px;">(${fmtHora(r.finiProgramado||r.fini)}z)</small> &#8594; ${r.arr} <small style="color:var(--dim);font-weight:400;font-size:11px;">(${fmtHora(r.ffinProgramado||r.ffin)}z)</small></span>
           <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${r.ajustado?'rgba(107,255,176,.15)':'rgba(125,144,172,.15)'};color:${r.ajustado?'var(--green)':'var(--dim)'};">${r.ajustado?'REAL':'ESTIMADO'}</span>
         </div>
         ${esVueltaMismoDia ? '' : `<div style="border-top:1px solid #1c3833;padding-top:10px;margin-bottom:10px;">
