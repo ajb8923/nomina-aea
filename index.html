@@ -252,7 +252,7 @@
     <div class="brand">
       <span class="eyebrow">Air Europa</span>
       <h1>Calculadora de Nómina</h1>
-      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos</span>
+      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-10-29.1</span></span>
     </div>
     <div class="clock">✈ TTP <br><small id="swStatus">Comprobando modo offline…</small></div>
   </header>
@@ -1424,7 +1424,7 @@ function procesarProgramacion(){
         if(ultimoArrBase >= 0){
           const mismoDia = r.fini.toISOString().slice(0,10) === vuelosAct[ultimoArrBase].ffin.toISOString().slice(0,10);
           if(mismoDia){
-            const inicio = new Date(r.fini.getTime() - 90*60000);
+            const inicio = calcularFirma(r);
             const fin = new Date(vuelosAct[ultimoArrBase].ffin.getTime() + 30*60000);
             const durH = (fin-inicio)/3600000;
             horasActividad += durH;
@@ -1562,6 +1562,17 @@ function procesarProgramacion(){
   }
 
   const numReservasActual = parseFloat(document.getElementById('numReservas').value)||0;
+  // Para cada día con dieta, buscar qué vuelo/servicio lo generó (para mostrarlo en el resumen).
+  const vuelosParaDietas = rows.filter(r=>r.codSer==='CO'||r.codSer==='CR');
+  let dietasPorDiaHtml = Object.keys(dietasPorDia).sort().map(fecha=>{
+    const info = dietasPorDia[fecha];
+    const vuelo = vuelosParaDietas.find(r=>diaLocalMadrid(r.fini)===fecha);
+    const cursoDia = rows.find(r=>(r.codSer==='OC'||r.codSer==='SR'||r.codSer==='RM') && diaLocalMadrid(r.fini)===fecha);
+    const etiqueta = vuelo ? `${vuelo.dep}&#8594;${vuelo.arr}` : (cursoDia ? TYPE_META_LARGO[cursoDia.codSer] : 'Pernocta');
+    return `<div>${fmtFecha(new Date(fecha+'T00:00:00Z'))} <span class="mono" style="color:var(--cyan);">${etiqueta}</span></div><div class="hg-val mono" style="color:var(--cyan);">${info.codigo}${info.cantidad!==1?' ×'+info.cantidad:''}</div>`;
+  }).join('');
+  if(!dietasPorDiaHtml) dietasPorDiaHtml = '<div style="grid-column:1/-1;color:var(--dim);">Sin dietas detectadas</div>';
+
   summaryEl.innerHTML = `
     <b style="color:var(--amber);">Programación procesada</b> — ${rows.length} filas detectadas${cambios.length?` (${cambios.length} de cambios)`:''}.
     <span style="color:var(--cyan);">Calendario, semana y mapa generados en sus pestañas.</span>
@@ -1580,6 +1591,12 @@ function procesarProgramacion(){
       <div class="dietas-grid">
         <div class="hg-h">Dieta</div><div class="hg-h hg-val">Días</div>
         ${dietaRowsHtml}
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid rgba(28,44,71,.5);padding-bottom:4px;margin-bottom:7px;">Vuelo / servicio → dieta</div>
+      <div class="horas-grid" style="grid-template-columns:max-content max-content;">
+        ${dietasPorDiaHtml}
       </div>
     </div>
     ${warnRutas}
