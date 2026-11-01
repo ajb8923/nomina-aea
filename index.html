@@ -253,7 +253,7 @@
     <div class="brand">
       <span class="eyebrow">Air Europa</span>
       <h1>Calculadora de Nómina</h1>
-      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-10-29.1</span></span>
+      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-11-01.1</span></span>
     </div>
     <div class="clock">✈ TTP <br><small id="swStatus">Comprobando modo offline…</small></div>
   </header>
@@ -263,13 +263,14 @@
   <div class="tab-panel active" id="tabProg">
     <h2 class="section-title"><span class="n">📅</span> Programación</h2>
 
+    <div class="field" id="historialSelector" style="display:none;margin-bottom:12px;"></div>
+
     <div class="toggle-row" onclick="toggleSwitchPanel('panelSubir', this)">
       <span class="switch-track" id="switchSubir"><span class="switch-thumb"></span></span>
       <span class="label-txt">Subir programación</span>
       <span class="label-sub">PDF, texto o a mano</span>
     </div>
     <div class="toggle-panel panel" id="panelSubir">
-      <div class="field" id="historialSelector" style="display:none;"></div>
       <div class="field" id="modoTextoWrap">
         <div class="checkrow" style="cursor:default;">
           <label style="margin:0;flex:1;">Modo de entrada</label>
@@ -1543,8 +1544,8 @@ function procesarProgramacion(){
   renderVistaDia(rows, cal);
   renderMapa(rows, cal);
   cerrarDetalleDia();
-  guardarHistorial(cal, {horasVuelo, horasActividad, horasNocturnas, imaginarias, horasActExtra, dietaCounts, rowsTexto: text});
-  renderSelectorHistorial();
+  const guardadoOk = guardarHistorial(cal, {horasVuelo, horasActividad, horasNocturnas, imaginarias, horasActExtra, dietaCounts, rowsTexto: text, cambiosTexto: cambiosText});
+  renderSelectorHistorial(`${cal.year}-${String(cal.month+1).padStart(2,'0')}`);
 
   // Pago a mes vencido: los conceptos variables (horas, dietas, actividad extra...) de esta
   // programación se cobran en la nómina del MES SIGUIENTE, no en la del propio mes de actividad.
@@ -1579,6 +1580,9 @@ function procesarProgramacion(){
 
   summaryEl.innerHTML = `
     <b style="color:var(--amber);">Programación procesada</b> — ${rows.length} filas detectadas${cambios.length?` (${cambios.length} de cambios)`:''}.
+    ${guardadoOk
+      ? `<span style="color:var(--green);">💾 Guardada (${MESES[cal.month]} ${cal.year}) — se recupera sola al abrir la app.</span>`
+      : `<span style="color:var(--red);">⚠ No se ha podido guardar: el navegador desde el que abres la app bloquea el almacenamiento. Ábrela en Safari para que se guarde.</span>`}
     <span style="color:var(--cyan);">Calendario, semana y mapa generados en sus pestañas.</span>
     ${mesNominaTexto}
     ${cambiosHtml}
@@ -2200,29 +2204,59 @@ function guardarHistorial(cal, resumen){
       horasVuelo: resumen.horasVuelo, horasActividad: resumen.horasActividad,
       horasNocturnas: resumen.horasNocturnas, imaginarias: resumen.imaginarias,
       horasActExtra: resumen.horasActExtra, dietaCounts: resumen.dietaCounts,
-      rowsTexto: resumen.rowsTexto, guardadoEl: new Date().toISOString(),
+      rowsTexto: resumen.rowsTexto, cambiosTexto: resumen.cambiosTexto||'',
+      guardadoEl: new Date().toISOString(),
     };
     localStorage.setItem(HISTORIAL_KEY, JSON.stringify(historial));
-  }catch(e){ console.warn('No se pudo guardar el historial:', e); }
+    // Comprobar que de verdad se ha guardado (algunos navegadores integrados aceptan el
+    // setItem pero no conservan los datos).
+    const check = JSON.parse(localStorage.getItem(HISTORIAL_KEY) || '{}');
+    return !!(check[key] && check[key].rowsTexto);
+  }catch(e){ console.warn('No se pudo guardar el historial:', e); return false; }
 }
 function leerHistorial(){
   try{ return JSON.parse(localStorage.getItem(HISTORIAL_KEY) || '{}'); }catch(e){ return {}; }
 }
-function renderSelectorHistorial(){
+function renderSelectorHistorial(keyActual){
   const el = document.getElementById('historialSelector');
   if(!el) return;
   const historial = leerHistorial();
   const claves = Object.keys(historial).sort().reverse();
-  if(claves.length<=1){ el.style.display='none'; return; }
+  if(claves.length===0){ el.style.display='none'; return; }
   el.style.display = 'block';
-  el.innerHTML = `<label>Meses guardados en este dispositivo</label>
-    <select onchange="cargarDesdeHistorial(this.value)">
-      <option value="">— Seleccionar mes guardado —</option>
-      ${claves.map(k=>{
-        const h = historial[k];
-        return `<option value="${k}">${MESES[h.month]} ${h.year} (${fmt(h.horasVuelo)}h vuelo)</option>`;
-      }).join('')}
-    </select>`;
+  const sel = (keyActual && historial[keyActual]) ? keyActual : claves[0];
+  el.innerHTML = `<label>Programaciones guardadas en este dispositivo</label>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="historialSelect" style="flex:1;" onchange="cargarDesdeHistorial(this.value)">
+        ${claves.map(k=>{
+          const h = historial[k];
+          return `<option value="${k}" ${k===sel?'selected':''}>${MESES[h.month]} ${h.year} (${fmt(h.horasVuelo)}h block)</option>`;
+        }).join('')}
+      </select>
+      <button id="btnBorrarMes" class="btn-secondary" style="width:auto;margin:0;padding:9px 12px;font-size:12px;color:var(--red);"
+        onclick="borrarProgramacionGuardada()">Borrar</button>
+    </div>`;
+}
+// Borrado en dos toques (sin confirm(), que algunos navegadores integrados no muestran).
+let borrarArmadoTimer = null;
+function borrarProgramacionGuardada(){
+  const sel = document.getElementById('historialSelect');
+  const btn = document.getElementById('btnBorrarMes');
+  if(!sel || !btn) return;
+  if(btn.dataset.armado !== '1'){
+    btn.dataset.armado = '1';
+    btn.textContent = '¿Seguro? Toca otra vez';
+    clearTimeout(borrarArmadoTimer);
+    borrarArmadoTimer = setTimeout(()=>{ btn.dataset.armado='0'; btn.textContent='Borrar'; }, 4000);
+    return;
+  }
+  clearTimeout(borrarArmadoTimer);
+  try{
+    const historial = leerHistorial();
+    delete historial[sel.value];
+    localStorage.setItem(HISTORIAL_KEY, JSON.stringify(historial));
+  }catch(e){ console.warn('No se pudo borrar:', e); }
+  renderSelectorHistorial();
 }
 function cargarDesdeHistorial(key){
   if(!key) return;
@@ -2232,7 +2266,14 @@ function cargarDesdeHistorial(key){
   document.getElementById('modoEntrada').value = 'texto';
   cambiarModoEntrada();
   document.getElementById('rosterInput').value = h.rowsTexto;
+  document.getElementById('cambiosInput').value = h.cambiosTexto || '';
   procesarProgramacion();
+  renderSelectorHistorial(key);
+}
+// Al abrir la app, recupera sola la última programación guardada.
+function autoRestaurarUltimaProgramacion(){
+  const claves = Object.keys(leerHistorial()).sort().reverse();
+  if(claves.length) cargarDesdeHistorial(claves[0]);
 }
 
 // ================= HISTORIAL DE NÓMINAS CALCULADAS =================
@@ -2978,6 +3019,8 @@ poblarNiveles();
 poblarDietas();
 renderSelectorHistorial();
 renderHistorialNominas();
+try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+autoRestaurarUltimaProgramacion();
 
 function mostrarEstadoSW(texto, ok){
   const el = document.getElementById('swStatus');
