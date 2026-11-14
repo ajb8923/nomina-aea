@@ -253,7 +253,7 @@
     <div class="brand">
       <span class="eyebrow">Air Europa</span>
       <h1>Calculadora de Nómina</h1>
-      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-11-01.1</span></span>
+      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-11-14.1</span></span>
     </div>
     <div class="clock">✈ TTP <br><small id="swStatus">Comprobando modo offline…</small></div>
   </header>
@@ -758,8 +758,10 @@ const DIETAS_2023 = [
 ["DIMC","Mixta internac. sin pernocta",159.92,138.76,36.06,36.06],
 ["DIMP","Mixta internac. con pernocta",146.53,131.77,53.34,53.34],
 ["DLC","Larga distancia sin pernocta",186.38,167.52,66.11,66.11],
+["DLC2","Larga distancia sin pernocta, 3/4 (día 1 con &lt;2h de actividad)",139.79,125.64,49.58,49.58],
 ["DLP","Larga distancia con pernocta",165.52,156.65,91.35,91.35],
 ["DLT","Larga distancia tributable 100%",240.96,195.98,0,0],
+["DLT2","Larga distancia tributable 100%, 3/4 (día 1 con &lt;2h de actividad)",180.72,146.99,0,0],
 ["DLMC","Larga mixta sin pernocta",211.19,180.46,36.06,36.06],
 ["DLMP","Larga mixta con pernocta",197.78,173.48,53.34,53.34],
 ["DES","Desayuno",19.27,15.67,0,0],
@@ -1317,7 +1319,7 @@ function calcularDietasPorViaje(rows){
           const codigoPrimero = esNocturno ? 'DLT' : 'DLC';
           diasLocales.forEach((fechaLocal, idx)=>{
             if(idx===0 && primerDiaReducido){
-              marcar(fechaLocal, codigoPrimero, 0.75, 'Día 1, empieza en base y <2h de actividad ese día local — 3/4 (DLT2/DLC2)');
+              marcar(fechaLocal, codigoPrimero+'2', 1, 'Día 1, empieza en base y <2h de actividad ese día local — 3/4 ('+codigoPrimero+'2)');
             } else if(idx===diasLocales.length-1){
               marcar(fechaLocal, codigoUltimo, 1, 'Último día, regreso ('+(esNocturno?'nocturno':'medio día')+')');
             } else {
@@ -1495,7 +1497,7 @@ function procesarProgramacion(){
   // Dietas: motor de secuencias por viaje, con hora local de Madrid (ver calcularDietasPorViaje)
   const {totales: dietaResultado, porDia: dietasPorDia} = calcularDietasPorViaje(rows);
   window.ultimoDietasPorDia = dietasPorDia;
-  const CODIGO_A_INDICE = {DNC:0, DNP:1, DIC:3, DLC:8, DLP:9, DLT:10};
+  const CODIGO_A_INDICE = {}; DIETAS_2023.forEach((d,i)=>{ CODIGO_A_INDICE[d[0]] = i; });
   const dietaCounts = {};
   Object.keys(dietaResultado).forEach(codigo=>{
     const idx = CODIGO_A_INDICE[codigo];
@@ -1515,7 +1517,7 @@ function procesarProgramacion(){
   });
 
   // Resumen visual
-  const labelsIdx = {0:'DNC',1:'DNP',3:'DIC',8:'DLC',9:'DLP',10:'DLT'};
+  const labelsIdx = {}; DIETAS_2023.forEach((d,i)=>{ labelsIdx[i] = d[0]; });
   let dietaRowsHtml = Object.keys(dietaCounts).filter(i=>dietaCounts[i]>0)
     .map(i=>`<div>${labelsIdx[i]}</div><div class="hg-val mono">${dietaCounts[i]}</div>`).join('');
   if(!dietaRowsHtml) dietaRowsHtml = '<div style="grid-column:1/-1;color:var(--dim);">Sin dietas detectadas</div>';
