@@ -1,6 +1,6 @@
 // Service Worker: cachea la app la primera vez que se visita con conexión,
 // y a partir de ahí la sirve desde caché aunque no haya internet.
-const CACHE_NAME = 'nomina-aea-cache-v1';
+const CACHE_NAME = 'nomina-aea-cache-v3';
 const URLS_TO_CACHE = [
   './',
   './index.html',
@@ -33,21 +33,23 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Estrategia: responder desde caché al instante si existe, y en paralelo
-// intentar refrescar desde la red para la próxima vez (stale-while-revalidate).
-// Si no hay red, se usa lo que haya en caché sin más.
+// Estrategia: RED PRIMERO (con conexión siempre se ve la última versión publicada) y, si no hay
+// red o tarda más de 4 s, se usa la copia en caché para que siga funcionando offline.
 self.addEventListener('fetch', event => {
   if(event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      const fetchPromise = fetch(event.request).then(networkResponse => {
-        if(networkResponse && networkResponse.ok){
-          const clone = networkResponse.clone();
+    new Promise(resolve => {
+      let respondido = false;
+      const usarCache = () => caches.match(event.request).then(c => { if(c && !respondido){ respondido = true; resolve(c); } return c; });
+      const timer = setTimeout(usarCache, 4000);
+      fetch(event.request, {cache:'no-cache'}).then(resp => {
+        clearTimeout(timer);
+        if(resp && resp.ok){
+          const clone = resp.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
-        return networkResponse;
-      }).catch(() => cached);
-      return cached || fetchPromise;
+        if(!respondido){ respondido = true; resolve(resp); }
+      }).catch(() => { clearTimeout(timer); usarCache().then(c => { if(!c && !respondido){ respondido = true; resolve(Response.error()); } }); });
     })
   );
 });

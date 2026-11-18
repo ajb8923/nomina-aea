@@ -3152,7 +3152,7 @@ if(!('serviceWorker' in navigator)){
   mostrarEstadoSW('Este navegador no soporta modo offline (Service Worker).', false);
 } else if(!navigator.onLine){
   // Si ya estamos offline al cargar, comprobamos si ya había una caché lista de antes.
-  caches.has && caches.has('nomina-aea-cache-v2').then(existe=>{
+  caches.has && caches.has('nomina-aea-cache-v3').then(existe=>{
     mostrarEstadoSW(existe ? 'Cargado desde caché offline ✓' : 'Sin conexión y sin caché previa — abre la app una vez con wifi.', existe);
   }).catch(()=> mostrarEstadoSW('Sin conexión — no se pudo comprobar la caché.', false));
 } else {
@@ -3160,7 +3160,7 @@ if(!('serviceWorker' in navigator)){
     navigator.serviceWorker.register('sw.js').then(reg=>{
       // Esperamos a que el Service Worker esté realmente activo y haya podido cachear los archivos.
       return navigator.serviceWorker.ready.then(()=>{
-        return caches.open('nomina-aea-cache-v2').then(cache=>cache.keys());
+        return caches.open('nomina-aea-cache-v3').then(cache=>cache.keys());
       });
     }).then(keys=>{
       if(keys && keys.length>0){
