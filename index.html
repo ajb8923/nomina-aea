@@ -253,7 +253,7 @@
     <div class="brand">
       <span class="eyebrow">Air Europa</span>
       <h1>Calculadora de Nómina</h1>
-      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-11-18.1</span></span>
+      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-11-18.2</span></span>
     </div>
     <div class="clock">✈ TTP <br><small id="swStatus">Comprobando modo offline…</small></div>
   </header>
@@ -897,7 +897,7 @@ function actualizarTarifasDietas(){
 }
 
 // ================= CÁLCULO PRINCIPAL =================
-function calcular(){
+function calcular(sinScroll){
   const rol = document.getElementById('rol').value;
   const nivelCod = document.getElementById('nivel').value;
   const tabla = tablaActual();
@@ -1039,7 +1039,7 @@ function calcular(){
     </div>`).join('');
 
   document.getElementById('resultPanel').style.display = 'block';
-  document.getElementById('resultPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(!sinScroll) document.getElementById('resultPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
 
   renderNominaReal({
     nivelCod, rol, sb, pv, pt, at, antiguedad,
@@ -1397,7 +1397,7 @@ function registrarAjusteDietaCalc(idx){
     const g = document.getElementById('dietasGridResumen');
     if(g) g.innerHTML = htmlDietasGrid(cuentasDietasDesdeInputs());
   }
-  calcular();
+  calcular(true);
 }
 function restablecerDietasCalculadora(){
   const mes = window.ultimoMesKey, base = window.ultimoDietaBase;
@@ -1406,7 +1406,7 @@ function restablecerDietasCalculadora(){
   DIETAS_2023.forEach((d,i)=>{ document.getElementById('dieta_'+i).value = base[d[0]]||0; });
   const g = document.getElementById('dietasGridResumen');
   if(g) g.innerHTML = htmlDietasGrid(cuentasDietasDesdeInputs());
-  calcular();
+  calcular(true);
 }
 // Dieta de un día concreto (Programación): automática, sin dieta, o cualquier código.
 function guardarDietaDiaDesdeUI(dateKey, selId, containerId){
@@ -3159,8 +3159,15 @@ if(!('serviceWorker' in navigator)){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('sw.js').then(reg=>{
       // Esperamos a que el Service Worker esté realmente activo y haya podido cachear los archivos.
-      return navigator.serviceWorker.ready.then(()=>{
-        return caches.open('nomina-aea-cache-v3').then(cache=>cache.keys());
+      return navigator.serviceWorker.ready.then(async ()=>{
+        // El Service Worker puede seguir guardando archivos justo al activarse: se reintenta unos segundos.
+        let keys = [];
+        for(let i=0;i<8;i++){
+          keys = await caches.open('nomina-aea-cache-v3').then(cache=>cache.keys());
+          if(keys.length>0) break;
+          await new Promise(r=>setTimeout(r,1000));
+        }
+        return keys;
       });
     }).then(keys=>{
       if(keys && keys.length>0){
