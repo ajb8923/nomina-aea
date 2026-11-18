@@ -34,6 +34,7 @@
   .wrap{max-width:960px;margin:0 auto;padding:18px 16px 90px;}
 
   /* Barra de pestañas inferior, fija */
+  body.editando .bottom-tabs{display:none;}
   .bottom-tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;
     background:var(--panel);border-top:1px solid var(--line);
     padding-bottom:env(safe-area-inset-bottom, 0px);}
@@ -253,7 +254,7 @@
     <div class="brand">
       <span class="eyebrow">Air Europa</span>
       <h1>Calculadora de Nómina</h1>
-      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-11-18.2</span></span>
+      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-11-18.3</span></span>
     </div>
     <div class="clock">✈ TTP <br><small id="swStatus">Comprobando modo offline…</small></div>
   </header>
@@ -2899,6 +2900,15 @@ function exportarNominaPDF(evt){
   }
 }
 
+// iPad/Safari: con el teclado abierto, las barras fijas "flotan" y suben al hacer scroll.
+// Mientras se edita un campo se oculta la barra inferior y reaparece al terminar.
+(function(){
+  const esCampo = el => el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !/^(checkbox|radio|button|file)$/.test(el.type||'');
+  document.addEventListener('focusin', e=>{ if(esCampo(e.target)) document.body.classList.add('editando'); });
+  document.addEventListener('focusout', ()=>{
+    setTimeout(()=>{ if(!esCampo(document.activeElement)) document.body.classList.remove('editando'); }, 150);
+  });
+})();
 document.getElementById('rol').addEventListener('change', ()=>{poblarNiveles(); poblarDietas();});
 document.getElementById('dietasBody').addEventListener('input', e=>{
   const m = /^dieta_(\d+)$/.exec((e.target&&e.target.id)||'');
