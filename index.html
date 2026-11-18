@@ -253,7 +253,7 @@
     <div class="brand">
       <span class="eyebrow">Air Europa</span>
       <h1>Calculadora de Nómina</h1>
-      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-11-14.1</span></span>
+      <span class="sub">V Convenio Colectivo — Tripulantes Técnicos Pilotos · <span style="color:var(--amber);font-weight:700;">v2026-11-18.1</span></span>
     </div>
     <div class="clock">✈ TTP <br><small id="swStatus">Comprobando modo offline…</small></div>
   </header>
@@ -533,6 +533,8 @@
       </thead>
       <tbody id="dietasBody"></tbody>
     </table>
+    <div style="font-size:11px;color:var(--dim);margin-top:8px;">Puedes editar los días/unidades: se tienen en cuenta en el cálculo y se reflejan (✎) en el resumen de Programación.</div>
+    <button class="btn-secondary" style="width:auto;margin:8px 0 0;padding:8px 12px;font-size:12px;" onclick="restablecerDietasCalculadora()">↺ Restablecer a las dietas de la programación</button>
   </div>
 
   <!-- 4. Otros conceptos -->
@@ -1341,7 +1343,80 @@ function calcularDietasPorViaje(rows){
     if(r.codSer==='OC' || r.codSer==='SR' || r.codSer==='RM') marcar(diaLocalMadrid(r.fini), 'DNC', 1, 'Curso/Simulador/Reconoc. médico');
   });
 
-  return {totales: dietaTotales, porDia};
+  // Ajustes manuales por día (Programación): sustituyen a la dieta automática de ese día.
+  const porDiaAuto = JSON.parse(JSON.stringify(porDia));
+  if(rows.length){
+    const minDia = diaLocalMadrid(new Date(Math.min(...rows.map(r=>+r.fini).filter(isFinite))));
+    const maxDia = diaLocalMadrid(new Date(Math.max(...rows.map(r=>+r.ffin).filter(isFinite))));
+    const ov = leerAjustesDietas();
+    Object.keys(ov).forEach(f=>{
+      if(f<minDia || f>maxDia) return;
+      const viejo = porDia[f];
+      if(viejo){
+        dietaTotales[viejo.codigo] = (dietaTotales[viejo.codigo]||0) - viejo.cantidad;
+        if(dietaTotales[viejo.codigo] < 1e-9) delete dietaTotales[viejo.codigo];
+        delete porDia[f];
+      }
+      if(ov[f]) marcar(f, ov[f], 1, 'Ajuste manual'), porDia[f].manual = true;
+    });
+  }
+  return {totales: dietaTotales, porDia, porDiaAuto};
+}
+
+// Resumen de dietas (cabecera + filas). Marca con ✎ y "auto N" los códigos ajustados desde la Calculadora.
+function htmlDietasGrid(counts){
+  const deltas = (leerDeltasDietas()[window.ultimoMesKey]) || {};
+  let rows = '';
+  DIETAS_2023.forEach((d,i)=>{
+    const n = counts[i]||0, dl = deltas[d[0]]||0;
+    if(n<=0 && !dl) return;
+    const auto = (window.ultimoDietaBase||{})[d[0]]||0;
+    rows += `<div>${d[0]}</div><div class="hg-val mono"${dl?' style="color:var(--amber);"':''}>${n}${dl?` <span style="color:var(--dim);font-size:9px;">✎ auto ${auto}</span>`:''}</div>`;
+  });
+  if(!rows) rows = '<div style="grid-column:1/-1;color:var(--dim);">Sin dietas detectadas</div>';
+  return `<div class="hg-h">Dieta</div><div class="hg-h hg-val">Días</div>${rows}`;
+}
+function cuentasDietasDesdeInputs(){
+  const c = {};
+  DIETAS_2023.forEach((d,i)=>{ c[i] = parseFloat(document.getElementById('dieta_'+i).value)||0; });
+  return c;
+}
+// Editar un nº de dietas en la Calculadora: se guarda como diferencia respecto a la programación
+// de ese mes, se recalcula la nómina y se actualiza el resumen de Programación.
+function registrarAjusteDietaCalc(idx){
+  const mes = window.ultimoMesKey, base = window.ultimoDietaBase;
+  if(mes && base){
+    const code = DIETAS_2023[idx][0];
+    const v = parseFloat(document.getElementById('dieta_'+idx).value)||0;
+    const delta = Math.round((v-(base[code]||0))*100)/100;
+    const todos = leerDeltasDietas();
+    const m = todos[mes] || {};
+    if(Math.abs(delta)<1e-9) delete m[code]; else m[code] = delta;
+    if(Object.keys(m).length) todos[mes] = m; else delete todos[mes];
+    guardarDeltasDietas(todos);
+    const g = document.getElementById('dietasGridResumen');
+    if(g) g.innerHTML = htmlDietasGrid(cuentasDietasDesdeInputs());
+  }
+  calcular();
+}
+function restablecerDietasCalculadora(){
+  const mes = window.ultimoMesKey, base = window.ultimoDietaBase;
+  if(!mes || !base){ alert('Primero procesa una programación.'); return; }
+  const todos = leerDeltasDietas(); delete todos[mes]; guardarDeltasDietas(todos);
+  DIETAS_2023.forEach((d,i)=>{ document.getElementById('dieta_'+i).value = base[d[0]]||0; });
+  const g = document.getElementById('dietasGridResumen');
+  if(g) g.innerHTML = htmlDietasGrid(cuentasDietasDesdeInputs());
+  calcular();
+}
+// Dieta de un día concreto (Programación): automática, sin dieta, o cualquier código.
+function guardarDietaDiaDesdeUI(dateKey, selId, containerId){
+  const val = document.getElementById(selId).value;
+  const ov = leerAjustesDietas();
+  if(val==='__auto') delete ov[dateKey];
+  else ov[dateKey] = (val==='__none') ? '' : val;
+  guardarAjustesDietas(ov);
+  procesarProgramacion();
+  refrescarDetalleDia(dateKey, containerId);
 }
 
 function procesarProgramacion(){
@@ -1495,8 +1570,9 @@ function procesarProgramacion(){
   }
 
   // Dietas: motor de secuencias por viaje, con hora local de Madrid (ver calcularDietasPorViaje)
-  const {totales: dietaResultado, porDia: dietasPorDia} = calcularDietasPorViaje(rows);
+  const {totales: dietaResultado, porDia: dietasPorDia, porDiaAuto: dietasPorDiaAuto} = calcularDietasPorViaje(rows);
   window.ultimoDietasPorDia = dietasPorDia;
+  window.ultimoDietasAuto = dietasPorDiaAuto;
   const CODIGO_A_INDICE = {}; DIETAS_2023.forEach((d,i)=>{ CODIGO_A_INDICE[d[0]] = i; });
   const dietaCounts = {};
   Object.keys(dietaResultado).forEach(codigo=>{
@@ -1517,10 +1593,7 @@ function procesarProgramacion(){
   });
 
   // Resumen visual
-  const labelsIdx = {}; DIETAS_2023.forEach((d,i)=>{ labelsIdx[i] = d[0]; });
-  let dietaRowsHtml = Object.keys(dietaCounts).filter(i=>dietaCounts[i]>0)
-    .map(i=>`<div>${labelsIdx[i]}</div><div class="hg-val mono">${dietaCounts[i]}</div>`).join('');
-  if(!dietaRowsHtml) dietaRowsHtml = '<div style="grid-column:1/-1;color:var(--dim);">Sin dietas detectadas</div>';
+  // (el resumen de dietas se construye más abajo, cuando ya se conoce el mes — ver htmlDietasGrid)
 
   let cambiosHtml = '';
   if(affectedDates.length>0){
@@ -1538,6 +1611,19 @@ function procesarProgramacion(){
   }
 
   const cal = buildCalendarData(rows, text);
+  // Dietas: total de la programación (con ajustes por día) + ajustes de totales hechos en la Calculadora.
+  window.ultimoMesKey = `${cal.year}-${String(cal.month+1).padStart(2,'0')}`;
+  window.ultimoDietaBase = Object.assign({}, dietaResultado);
+  {
+    const deltas = leerDeltasDietas()[window.ultimoMesKey] || {};
+    Object.keys(deltas).forEach(code=>{
+      const idx = DIETAS_2023.findIndex(d=>d[0]===code);
+      if(idx<0) return;
+      dietaCounts[idx] = Math.max(0, (window.ultimoDietaBase[code]||0) + deltas[code]);
+    });
+    DIETAS_2023.forEach((d,i)=>{ const el = document.getElementById('dieta_'+i); if(el) el.value = dietaCounts[i]||0; });
+  }
+  const dietaRowsHtml = htmlDietasGrid(dietaCounts);
   window.ultimoRows = rows;
   window.ultimoCalendarioRows = rows; // alias usado por Semana/Día/Mapa
   renderCalendar(cal);
@@ -1576,7 +1662,7 @@ function procesarProgramacion(){
     // Línea sutil al terminar cada viaje (último día, corto de un día, o curso/simulador suelto).
     const finDeViaje = /Último día|Ida y vuelta|Vuelo de ida sin vuelta|Curso\/Simulador/.test(info.motivo||'');
     const borde = finDeViaje ? 'border-bottom:1px solid rgba(125,144,172,.18);' : '';
-    return `<div style="break-inside:avoid;white-space:nowrap;padding:2px 10px 4px 0;margin-bottom:2px;${borde}">${fmtFecha(new Date(fecha+'T00:00:00Z'))} <span class="mono" style="color:var(--cyan);">${etiqueta}</span> <span class="mono" style="color:var(--amber);font-weight:700;">${info.codigo}${info.cantidad!==1?'×'+info.cantidad:''}</span></div>`;
+    return `<div style="break-inside:avoid;white-space:nowrap;padding:2px 10px 4px 0;margin-bottom:2px;${borde}">${fmtFecha(new Date(fecha+'T00:00:00Z'))} <span class="mono" style="color:var(--cyan);">${etiqueta}</span> <span class="mono" style="color:var(--amber);font-weight:700;">${info.codigo}${info.cantidad!==1?'×'+info.cantidad:''}${info.manual?' ✎':''}</span></div>`;
   }).join('');
   if(!dietasPorDiaHtml) dietasPorDiaHtml = '<div style="color:var(--dim);">Sin dietas detectadas</div>';
 
@@ -1598,10 +1684,7 @@ function procesarProgramacion(){
         <div class="hg-label">IMAGINARIAS</div><div class="hg-val mono" style="grid-column:span 2;">${imaginarias}</div>
         <div class="hg-label">RESERVAS</div><div class="hg-val mono" style="grid-column:span 2;">${numReservasActual}</div>
       </div>
-      <div class="dietas-grid">
-        <div class="hg-h">Dieta</div><div class="hg-h hg-val">Días</div>
-        ${dietaRowsHtml}
-      </div>
+      <div class="dietas-grid" id="dietasGridResumen">${dietaRowsHtml}</div>
       <div style="flex:1 1 220px;border-left:1px solid var(--line);padding-left:26px;">
         <div class="hg-h" style="margin-bottom:5px;">Vuelo / servicio → dieta</div>
         <div class="vuelo-dieta-cols">${dietasPorDiaHtml}</div>
@@ -1743,6 +1826,15 @@ function renderStatsBar(rows, cal, resumen){
 // Para vuelos que salen de Madrid: salida menos 1h30. Para vuelos de vuelta (no salen de MAD),
 // no se calcula firma — pendiente de confirmar la regla exacta.
 // ================= AJUSTE MANUAL DE FIRMA (localStorage) =================
+// ---- Ajustes manuales de dietas ----
+// (a) Por día (Programación): {fecha local Madrid: código | ''}  ('' = sin dieta ese día)
+// (b) Por total (Calculadora): {mes 'YYYY-MM': {código: diferencia respecto a la programación}}
+const AJUSTES_DIETAS_KEY = 'nomina-aea-ajustes-dietas';
+const DELTAS_DIETAS_KEY = 'nomina-aea-ajustes-dietas-totales';
+function leerAjustesDietas(){ try{ return JSON.parse(localStorage.getItem(AJUSTES_DIETAS_KEY)||'{}'); }catch(e){ return {}; } }
+function leerDeltasDietas(){ try{ return JSON.parse(localStorage.getItem(DELTAS_DIETAS_KEY)||'{}'); }catch(e){ return {}; } }
+function guardarAjustesDietas(o){ try{ localStorage.setItem(AJUSTES_DIETAS_KEY, JSON.stringify(o)); }catch(e){} }
+function guardarDeltasDietas(o){ try{ localStorage.setItem(DELTAS_DIETAS_KEY, JSON.stringify(o)); }catch(e){} }
 const AJUSTES_FIRMA_KEY = 'nomina-aea-ajustes-firma';
 function leerAjustesFirma(){
   try{ return JSON.parse(localStorage.getItem(AJUSTES_FIRMA_KEY) || '{}'); }catch(e){ return {}; }
@@ -1848,6 +1940,23 @@ function renderSemana(rows, cal){
 // Construye el HTML del detalle de un día (cabecera + tarjetas de cada servicio). Reutilizable
 // tanto para el panel compartido (Mes/Semana/Mapa) como para abrir en línea dentro de la propia
 // lista de la vista Día. onCerrarJs es el onclick del botón "Cerrar" (varía según dónde se use).
+function htmlSelectorDietaDia(dateKey, cid){
+  let html='';
+
+    const auto = (window.ultimoDietasAuto||{})[dateKey];
+    const man = leerAjustesDietas()[dateKey];
+    const selId = 'dietaSel_'+(cid||'panel')+'_'+dateKey;
+    const actual = man===undefined ? '__auto' : (man==='' ? '__none' : man);
+    const opts = [`<option value="__auto"${actual==='__auto'?' selected':''}>Automática (${auto?auto.codigo+(auto.cantidad!==1?' ×'+auto.cantidad:''):'sin dieta'})</option>`,
+      `<option value="__none"${actual==='__none'?' selected':''}>Sin dieta</option>`]
+      .concat(DIETAS_2023.map(d=>`<option value="${d[0]}"${actual===d[0]?' selected':''}>${d[0]}</option>`)).join('');
+    html += `<div style="border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:12px;margin:10px 0 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="font-size:11px;color:var(--dim);">DIETA DE ESTE DÍA${man!==undefined?' <span style="color:var(--amber);">✎ manual</span>':''}</div>
+      <select id="${selId}" style="flex:1 1 150px;" onchange="guardarDietaDiaDesdeUI('${dateKey}','${selId}','${cid}')">${opts}</select>
+    </div>`;
+  
+  return html;
+}
 function construirHtmlDetalleDia(dateKey, onCerrarJs, contId){
   const cid = contId || '';
   const rows = window.ultimoRows || [];
@@ -1862,7 +1971,7 @@ function construirHtmlDetalleDia(dateKey, onCerrarJs, contId){
   </div>`;
 
   if(items.length===0){
-    return `<div class="panel" style="border-color:var(--amber);">${cabecera}<div style="color:var(--dim);">Sin actividad registrada ese día.</div></div>`;
+    return `<div class="panel" style="border-color:var(--amber);">${cabecera}<div style="color:var(--dim);">Sin actividad registrada ese día.</div>${htmlSelectorDietaDia(dateKey, cid)}</div>`;
   }
 
   let html = `<div class="panel" style="border-color:var(--amber);">${cabecera}`;
@@ -1993,6 +2102,7 @@ function construirHtmlDetalleDia(dateKey, onCerrarJs, contId){
       html += `<div style="border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:14px;margin:10px 0;color:var(--dim);">${label}</div>`;
     }
   });
+  html += htmlSelectorDietaDia(dateKey, cid);
   html += `</div>`;
   return html;
 }
@@ -2790,6 +2900,10 @@ function exportarNominaPDF(evt){
 }
 
 document.getElementById('rol').addEventListener('change', ()=>{poblarNiveles(); poblarDietas();});
+document.getElementById('dietasBody').addEventListener('input', e=>{
+  const m = /^dieta_(\d+)$/.exec((e.target&&e.target.id)||'');
+  if(m) registrarAjusteDietaCalc(parseInt(m[1],10));
+});
 document.getElementById('anio').addEventListener('change', actualizarTarifasDietas);
 document.getElementById('incAdicional').addEventListener('input', actualizarTarifasDietas);
 
@@ -3038,7 +3152,7 @@ if(!('serviceWorker' in navigator)){
   mostrarEstadoSW('Este navegador no soporta modo offline (Service Worker).', false);
 } else if(!navigator.onLine){
   // Si ya estamos offline al cargar, comprobamos si ya había una caché lista de antes.
-  caches.has && caches.has('nomina-aea-cache-v1').then(existe=>{
+  caches.has && caches.has('nomina-aea-cache-v2').then(existe=>{
     mostrarEstadoSW(existe ? 'Cargado desde caché offline ✓' : 'Sin conexión y sin caché previa — abre la app una vez con wifi.', existe);
   }).catch(()=> mostrarEstadoSW('Sin conexión — no se pudo comprobar la caché.', false));
 } else {
@@ -3046,7 +3160,7 @@ if(!('serviceWorker' in navigator)){
     navigator.serviceWorker.register('sw.js').then(reg=>{
       // Esperamos a que el Service Worker esté realmente activo y haya podido cachear los archivos.
       return navigator.serviceWorker.ready.then(()=>{
-        return caches.open('nomina-aea-cache-v1').then(cache=>cache.keys());
+        return caches.open('nomina-aea-cache-v2').then(cache=>cache.keys());
       });
     }).then(keys=>{
       if(keys && keys.length>0){
